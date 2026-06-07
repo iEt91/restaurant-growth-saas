@@ -1,4 +1,4 @@
-export const APP_VERSION = "v 1.0.2";
+export const APP_VERSION = "v 1.0.3";
 
 export const VERSION_HISTORY = [
   {
@@ -7,7 +7,7 @@ export const VERSION_HISTORY = [
     notes: [
       "Base visual del SaaS multi-tenant",
       "Layout premium para restaurante y super admin",
-      "Correcciones de UX, accesibilidad y ancho completo",
+      "Correcciones estructurales de sidebar y scroll principal",
     ],
   },
 ] as const;

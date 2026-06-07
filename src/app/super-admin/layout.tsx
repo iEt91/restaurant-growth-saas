@@ -23,6 +23,7 @@ export default function SuperAdminLayout({
       nav={nav}
       roleLabel="Super Admin"
       userLabel="Lucía Gómez"
+      showHeader
     >
       {children}
     </AppShell>

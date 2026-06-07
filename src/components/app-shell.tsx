@@ -23,12 +23,12 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useSupportMode } from "@/components/support-mode-provider";
 import { SupportBanner } from "@/components/support-banner";
+import { APP_VERSION } from "@/config/version";
 
 export type NavItem = {
   href: string;
@@ -73,6 +73,7 @@ type AppShellProps = {
   headerAction?: ReactNode;
   roleLabel?: string;
   userLabel?: string;
+  showHeader?: boolean;
 };
 
 export function AppShell({
@@ -84,6 +85,7 @@ export function AppShell({
   headerAction,
   roleLabel,
   userLabel,
+  showHeader = true,
 }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -129,7 +131,7 @@ export function AppShell({
 
       <Separator className="bg-white/10" />
 
-      <ScrollArea className="flex-1 px-3 py-4">
+      <div className="flex-1 px-3 py-4">
         <nav className="space-y-1">
           {nav.map((item) => {
             const Icon = navIcons[item.icon];
@@ -140,10 +142,10 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex items-center justify-between rounded-2xl border-l-4 px-4 py-3 text-sm font-medium transition-all",
+                  "group flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-colors",
                   active
-                    ? "border-emerald-400 bg-[color:var(--active-item)] text-white shadow-[0_12px_26px_rgba(0,0,0,0.28)]"
-                    : "border-transparent text-[color:var(--sidebar-muted)] hover:bg-white/5 hover:text-white"
+                    ? "bg-[color:var(--active-item)] text-white"
+                    : "text-[color:var(--sidebar-muted)] hover:bg-white/5 hover:text-white"
                 )}
               >
                 <span className="flex items-center gap-3">
@@ -160,7 +162,7 @@ export function AppShell({
                     variant={active ? "secondary" : "outline"}
                     className={cn(
                       "border-0 bg-white/10 px-2 py-0.5 text-[11px]",
-                    active && "bg-white/10 text-white"
+                      active && "bg-white/10 text-white"
                     )}
                   >
                     {item.badge}
@@ -170,7 +172,7 @@ export function AppShell({
             );
           })}
         </nav>
-      </ScrollArea>
+      </div>
 
       <div className="space-y-4 p-5">
         <Card className="border-white/10 bg-white/5 p-4 text-white shadow-none">
@@ -189,7 +191,7 @@ export function AppShell({
 
         <div className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4">
           <p className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--sidebar-muted)]">
-            Usuario
+            {APP_VERSION}
           </p>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div>
@@ -215,9 +217,9 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen bg-[color:var(--app-background)] text-[color:var(--app-foreground)]">
-      <div className="flex min-h-screen w-full">
-        <aside className="hidden w-[296px] shrink-0 border-r border-slate-800/70 bg-[color:var(--sidebar-background)] lg:block">
+    <div className="h-screen overflow-hidden bg-[color:var(--app-background)] text-[color:var(--app-foreground)]">
+      <div className="flex h-screen w-full">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:h-screen lg:w-[296px]">
           {sidebar}
         </aside>
 
@@ -234,28 +236,30 @@ export function AppShell({
           </SheetContent>
         </Sheet>
 
-        <main className="flex min-w-0 flex-1 flex-col px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden px-4 py-4 sm:px-5 sm:py-5 lg:ml-[296px] lg:px-6 lg:py-6">
           <SupportBanner />
 
-          <header className="mb-4 flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_rgba(15,23,42,0.05)] lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
-                {roleLabel}
-              </p>
-              <h2 className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-950">
-                {title}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {headerAction}
-              <Button variant="outline" className="rounded-2xl" onClick={() => router.push("/")}>
-                Volver al login
-              </Button>
-            </div>
-          </header>
+          {showHeader ? (
+            <header className="mb-4 flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_rgba(15,23,42,0.05)] lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
+                  {roleLabel}
+                </p>
+                <h2 className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-950">
+                  {title}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {headerAction}
+                <Button variant="outline" className="rounded-2xl" onClick={() => router.push("/")}>
+                  Volver al login
+                </Button>
+              </div>
+            </header>
+          ) : null}
 
-          <div className="min-w-0 flex-1 pb-2">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto pb-2 pr-1">{children}</div>
         </main>
       </div>
     </div>

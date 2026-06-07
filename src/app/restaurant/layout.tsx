@@ -24,6 +24,7 @@ export default function RestaurantLayout({
       nav={nav}
       roleLabel="Dueño / Gerente"
       userLabel="Sofía Martínez"
+      showHeader={false}
     >
       {children}
     </AppShell>
