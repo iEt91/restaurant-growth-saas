@@ -19,44 +19,75 @@ const SupportModeContext = React.createContext<SupportModeContextValue | null>(
 );
 
 const STORAGE_KEY = "restaurant-growth-saas-support-mode";
+const SUPPORT_MODE_CHANGE_EVENT = "restaurant-growth-saas-support-mode-change";
+
+function getDefaultState(): SupportModeState {
+  return { active: false, restaurant: null };
+}
+
+function readStateFromStorage(): SupportModeState {
+  if (typeof window === "undefined") {
+    return getDefaultState();
+  }
+
+  const saved = window.localStorage.getItem(STORAGE_KEY);
+  if (!saved) {
+    return getDefaultState();
+  }
+
+  try {
+    return JSON.parse(saved) as SupportModeState;
+  } catch {
+    window.localStorage.removeItem(STORAGE_KEY);
+    return getDefaultState();
+  }
+}
+
+function writeStateToStorage(state: SupportModeState) {
+  if (typeof window === "undefined") return;
+
+  if (state.active && state.restaurant) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } else {
+    window.localStorage.removeItem(STORAGE_KEY);
+  }
+
+  window.dispatchEvent(new Event(SUPPORT_MODE_CHANGE_EVENT));
+}
+
+function subscribe(callback: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const handler = () => callback();
+
+  window.addEventListener("storage", handler);
+  window.addEventListener(SUPPORT_MODE_CHANGE_EVENT, handler);
+
+  return () => {
+    window.removeEventListener("storage", handler);
+    window.removeEventListener(SUPPORT_MODE_CHANGE_EVENT, handler);
+  };
+}
 
 export function SupportModeProvider({
   children,
 }: {
   children: ReactNode;
 }) {
-  const [state, setState] = React.useState<SupportModeState>(() => {
-    if (typeof window === "undefined") {
-      return { active: false, restaurant: null };
-    }
-
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) {
-      return { active: false, restaurant: null };
-    }
-
-    try {
-      return JSON.parse(saved) as SupportModeState;
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return { active: false, restaurant: null };
-    }
-  });
-
-  React.useEffect(() => {
-    if (state.active && state.restaurant) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } else {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  }, [state]);
+  const state = React.useSyncExternalStore(
+    subscribe,
+    readStateFromStorage,
+    getDefaultState
+  );
 
   const value = React.useMemo<SupportModeContextValue>(
     () => ({
       ...state,
       enterSupportMode: (restaurant) =>
-        setState({ active: true, restaurant }),
-      exitSupportMode: () => setState({ active: false, restaurant: null }),
+        writeStateToStorage({ active: true, restaurant }),
+      exitSupportMode: () => writeStateToStorage({ active: false, restaurant: null }),
     }),
     [state]
   );

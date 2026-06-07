@@ -111,7 +111,7 @@ export function AppShell({
               </p>
             </div>
           </div>
-          <Badge className="border-transparent bg-[#0f172a] text-white">
+          <Badge className="border-0 bg-[#0f172a] text-white">
             {roleLabel}
           </Badge>
         </div>
@@ -159,7 +159,7 @@ export function AppShell({
                 </span>
                 {item.badge ? (
                   <Badge
-                    variant={active ? "secondary" : "outline"}
+                    variant="default"
                     className={cn(
                       "border-0 bg-white/10 px-2 py-0.5 text-[11px]",
                       active
@@ -206,8 +206,8 @@ export function AppShell({
             </div>
             <Button
               size="icon"
-              variant="outline"
-              className="h-10 w-10 border-0 bg-white/5 text-white hover:bg-white/10"
+              variant="ghost"
+              className="h-10 w-10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
               onClick={() => router.push("/")}
             >
               <LogOut className="h-4 w-4" />

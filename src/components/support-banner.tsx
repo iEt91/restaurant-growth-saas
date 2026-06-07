@@ -22,7 +22,7 @@ export function SupportBanner() {
           como Super Admin
         </p>
       </div>
-      <Button variant="outline" size="sm" className="border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={exitSupportMode}>
+      <Button variant="ghost" size="sm" className="bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={exitSupportMode}>
         Salir del modo soporte
       </Button>
     </div>
