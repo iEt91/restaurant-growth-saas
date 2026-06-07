@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import type { Restaurant } from "@/types/domain";
 import type { ReactNode } from "react";
+import type { Restaurant } from "@/types/domain";
 
 type SupportModeState = {
   active: boolean;
@@ -14,61 +14,83 @@ type SupportModeContextValue = SupportModeState & {
   exitSupportMode: () => void;
 };
 
-const SupportModeContext = React.createContext<SupportModeContextValue | null>(
-  null
-);
-
 const STORAGE_KEY = "restaurant-growth-saas-support-mode";
-const SUPPORT_MODE_CHANGE_EVENT = "restaurant-growth-saas-support-mode-change";
 
-function getDefaultState(): SupportModeState {
-  return { active: false, restaurant: null };
+const defaultSupportModeState: SupportModeState = {
+  active: false,
+  restaurant: null,
+};
+
+let supportModeSnapshot: SupportModeState = defaultSupportModeState;
+let supportModeSnapshotSerialized = JSON.stringify(defaultSupportModeState);
+const listeners = new Set<() => void>();
+
+function notifyListeners() {
+  listeners.forEach((listener) => listener());
 }
 
-function readStateFromStorage(): SupportModeState {
-  if (typeof window === "undefined") {
-    return getDefaultState();
+function setSupportModeSnapshot(nextState: SupportModeState) {
+  const nextSerialized = JSON.stringify(nextState);
+  if (supportModeSnapshotSerialized === nextSerialized) {
+    return;
   }
 
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (!saved) {
-    return getDefaultState();
+  supportModeSnapshot = nextState;
+  supportModeSnapshotSerialized = nextSerialized;
+  notifyListeners();
+}
+
+function readSupportModeStateFromStorage(): SupportModeState {
+  if (typeof window === "undefined") {
+    return defaultSupportModeState;
+  }
+
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    return defaultSupportModeState;
   }
 
   try {
-    return JSON.parse(saved) as SupportModeState;
+    const parsed = JSON.parse(raw) as SupportModeState;
+    if (parsed.active && parsed.restaurant) {
+      return parsed;
+    }
   } catch {
     window.localStorage.removeItem(STORAGE_KEY);
-    return getDefaultState();
   }
+
+  return defaultSupportModeState;
 }
 
-function writeStateToStorage(state: SupportModeState) {
-  if (typeof window === "undefined") return;
-
-  if (state.active && state.restaurant) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } else {
-    window.localStorage.removeItem(STORAGE_KEY);
-  }
-
-  window.dispatchEvent(new Event(SUPPORT_MODE_CHANGE_EVENT));
+function syncSupportModeFromStorage() {
+  const nextState = readSupportModeStateFromStorage();
+  setSupportModeSnapshot(nextState);
 }
 
-function subscribe(callback: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  const handler = () => callback();
-
-  window.addEventListener("storage", handler);
-  window.addEventListener(SUPPORT_MODE_CHANGE_EVENT, handler);
-
+function subscribe(listener: () => void) {
+  listeners.add(listener);
   return () => {
-    window.removeEventListener("storage", handler);
-    window.removeEventListener(SUPPORT_MODE_CHANGE_EVENT, handler);
+    listeners.delete(listener);
   };
+}
+
+function getSnapshot() {
+  return supportModeSnapshot;
+}
+
+function getServerSnapshot() {
+  return defaultSupportModeState;
+}
+
+function persistSupportModeState(nextState: SupportModeState) {
+  setSupportModeSnapshot(nextState);
+
+  if (nextState.active && nextState.restaurant) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+    return;
+  }
+
+  window.localStorage.removeItem(STORAGE_KEY);
 }
 
 export function SupportModeProvider({
@@ -76,20 +98,31 @@ export function SupportModeProvider({
 }: {
   children: ReactNode;
 }) {
+  React.useEffect(() => {
+    syncSupportModeFromStorage();
+  }, []);
+
   const state = React.useSyncExternalStore(
     subscribe,
-    readStateFromStorage,
-    getDefaultState
+    getSnapshot,
+    getServerSnapshot
   );
+
+  const enterSupportMode = React.useCallback((restaurant: Restaurant) => {
+    persistSupportModeState({ active: true, restaurant });
+  }, []);
+
+  const exitSupportMode = React.useCallback(() => {
+    persistSupportModeState(defaultSupportModeState);
+  }, []);
 
   const value = React.useMemo<SupportModeContextValue>(
     () => ({
       ...state,
-      enterSupportMode: (restaurant) =>
-        writeStateToStorage({ active: true, restaurant }),
-      exitSupportMode: () => writeStateToStorage({ active: false, restaurant: null }),
+      enterSupportMode,
+      exitSupportMode,
     }),
-    [state]
+    [state, enterSupportMode, exitSupportMode]
   );
 
   return (
@@ -98,6 +131,10 @@ export function SupportModeProvider({
     </SupportModeContext.Provider>
   );
 }
+
+const SupportModeContext = React.createContext<SupportModeContextValue | null>(
+  null
+);
 
 export function useSupportMode() {
   const context = React.useContext(SupportModeContext);

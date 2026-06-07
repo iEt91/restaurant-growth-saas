@@ -22,7 +22,6 @@ import {
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -111,9 +110,9 @@ export function AppShell({
               </p>
             </div>
           </div>
-          <Badge className="border-0 bg-[#0f172a] text-white">
+          <div className="rounded-full bg-[#0f172a] px-3 py-1 text-xs font-medium text-white">
             {roleLabel}
-          </Badge>
+          </div>
         </div>
 
         {supportMode.active && supportMode.restaurant ? (
@@ -158,17 +157,14 @@ export function AppShell({
                   {item.label}
                 </span>
                 {item.badge ? (
-                  <Badge
-                    variant="default"
+                  <div
                     className={cn(
-                      "border-0 bg-white/10 px-2 py-0.5 text-[11px]",
-                      active
-                        ? "bg-white/10 text-white"
-                        : "text-[color:var(--sidebar-muted)]"
+                      "rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium",
+                      active ? "text-white" : "text-[color:var(--sidebar-muted)]"
                     )}
                   >
                     {item.badge}
-                  </Badge>
+                  </div>
                 ) : null}
               </Link>
             );
