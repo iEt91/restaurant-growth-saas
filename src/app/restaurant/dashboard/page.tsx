@@ -58,7 +58,7 @@ export default function RestaurantDashboardPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-950">Reservas por horario</p>
-                    <p className="text-xs text-slate-500">Pico nocturno y arranque de mediodia</p>
+                    <p className="text-xs text-slate-500">Pico de noche y arranque de mediodia</p>
                   </div>
                   <Badge variant="outline">Hoy</Badge>
                 </div>
@@ -82,7 +82,7 @@ export default function RestaurantDashboardPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-slate-950">Cumpleanos hoy</p>
-                    <p className="text-xs text-slate-500">Clientes a saludar en el turno</p>
+                    <p className="text-xs text-slate-500">Clientes a saludar en el servicio</p>
                   </div>
                   <Badge variant="warning">4</Badge>
                 </div>
