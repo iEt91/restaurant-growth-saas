@@ -23,6 +23,7 @@ export default function RestaurantLayout({
       subtitle="Operación diaria, reservas, clientes y menú."
       nav={nav}
       roleLabel="Dueño / Gerente"
+      userLabel="Sofía Martínez"
     >
       {children}
     </AppShell>

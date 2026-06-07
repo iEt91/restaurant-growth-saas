@@ -11,18 +11,18 @@ export function SupportBanner() {
   if (!active || !restaurant) return null;
 
   return (
-    <div className="mb-6 flex flex-col gap-3 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-4 flex flex-col gap-3 rounded-3xl border border-amber-300/30 bg-[linear-gradient(90deg,rgba(17,24,39,0.96),rgba(31,41,55,0.96))] px-4 py-3 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
-        <Badge variant="warning" className="gap-1.5 border-amber-200 bg-white/70">
+        <Badge variant="warning" className="gap-1.5 border-amber-300/30 bg-amber-400/15 text-amber-100">
           <ShieldCheck className="h-3.5 w-3.5" />
           Modo soporte activo
         </Badge>
-        <p className="text-sm font-medium">
+        <p className="text-sm font-medium text-slate-100">
           Estás viendo <span className="font-semibold">{restaurant.name}</span>{" "}
           como Super Admin
         </p>
       </div>
-      <Button variant="outline" size="sm" onClick={exitSupportMode}>
+      <Button variant="outline" size="sm" className="border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={exitSupportMode}>
         Salir del modo soporte
       </Button>
     </div>

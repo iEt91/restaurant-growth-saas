@@ -11,29 +11,31 @@ export default function SupportModePage() {
   const { active, restaurant, enterSupportMode, exitSupportMode } = useSupportMode();
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-5 xl:grid-cols-[1fr_0.75fr]">
       <Card>
         <CardHeader>
           <CardTitle>Modo soporte</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm leading-7 text-slate-500">
-            Aquí se centraliza la navegación de soporte. Desde la pantalla de
-            restaurantes podés entrar como si fueras parte del tenant.
+            El modo soporte conserva la estetica premium y te deja entrar a cualquier tenant.
           </p>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid gap-3 md:grid-cols-2">
             {restaurants.map((item) => (
-              <Button
+              <button
                 key={item.id}
-                variant="outline"
-                className="rounded-2xl"
+                type="button"
+                className="rounded-3xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-sm"
                 onClick={() => {
                   enterSupportMode(item);
                   router.push("/restaurant/dashboard");
                 }}
               >
-                Entrar a {item.name}
-              </Button>
+                <p className="text-sm font-semibold text-slate-950">{item.name}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {item.city} - {item.monthlyPlan}
+                </p>
+              </button>
             ))}
           </div>
         </CardContent>
@@ -44,13 +46,11 @@ export default function SupportModePage() {
           <CardTitle>Estado actual</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-slate-500">
-            {active && restaurant
-              ? `Activo sobre ${restaurant.name}`
-              : "No hay modo soporte activo."}
-          </p>
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            {active && restaurant ? `Activo sobre ${restaurant.name}` : "No hay modo soporte activo."}
+          </div>
           {active ? (
-            <Button variant="destructive" className="rounded-2xl" onClick={exitSupportMode}>
+            <Button variant="destructive" className="w-full rounded-2xl" onClick={exitSupportMode}>
               Salir del modo soporte
             </Button>
           ) : null}

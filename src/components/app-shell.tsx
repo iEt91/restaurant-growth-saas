@@ -17,6 +17,7 @@ import {
   CreditCard,
   FileClock,
   ShieldCheck,
+  LogOut,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useSupportMode } from "@/components/support-mode-provider";
 import { SupportBanner } from "@/components/support-banner";
+
 export type NavItem = {
   href: string;
   label: string;
@@ -70,6 +72,7 @@ type AppShellProps = {
   children: ReactNode;
   headerAction?: ReactNode;
   roleLabel?: string;
+  userLabel?: string;
 };
 
 export function AppShell({
@@ -80,48 +83,51 @@ export function AppShell({
   children,
   headerAction,
   roleLabel,
+  userLabel,
 }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supportMode = useSupportMode();
 
   const sidebar = (
-    <div className="flex h-full flex-col bg-white/90">
-      <div className="space-y-6 p-6">
+    <div className="flex h-full flex-col bg-[color:var(--sidebar-background)] text-[color:var(--sidebar-foreground)]">
+      <div className="space-y-5 p-5">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-sm">
+          <div className="space-y-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.32)]">
               {brand.slice(0, 1)}
             </div>
-            <div className="mt-4">
-              <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-400">
-                Restaurant Growth
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--sidebar-muted)]">
+                Restaurant Growth SaaS
               </p>
-              <h1 className="mt-1 text-lg font-semibold text-slate-950">
+              <h1 className="mt-2 text-lg font-semibold tracking-tight text-white">
                 {brand}
               </h1>
-              <p className="text-sm text-slate-500">{subtitle}</p>
+              <p className="mt-1 text-sm text-[color:var(--sidebar-muted)]">
+                {subtitle}
+              </p>
             </div>
           </div>
-          <Badge variant={roleLabel === "Super Admin" ? "info" : "secondary"}>
+          <Badge className="border-white/10 bg-white/5 text-white">
             {roleLabel}
           </Badge>
         </div>
 
         {supportMode.active && supportMode.restaurant ? (
-          <Card className="border-amber-200 bg-amber-50/80 p-4 shadow-none">
-            <div className="flex items-center gap-2 text-sm font-medium text-amber-900">
-              <Shield className="h-4 w-4" />
-              {supportMode.restaurant.name}
+          <Card className="border border-white/10 bg-white/5 p-4 shadow-none">
+            <div className="flex items-center gap-2 text-sm font-medium text-white">
+              <Shield className="h-4 w-4 text-amber-400" />
+              Modo soporte
             </div>
-            <p className="mt-1 text-xs leading-5 text-amber-800">
-              El modo soporte ya está activo y listo para navegar entre paneles.
+            <p className="mt-2 text-xs leading-5 text-[color:var(--sidebar-muted)]">
+              Navegando como {supportMode.restaurant.name}
             </p>
           </Card>
         ) : null}
       </div>
 
-      <Separator />
+      <Separator className="bg-white/10" />
 
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-1">
@@ -136,15 +142,15 @@ export function AppShell({
                 className={cn(
                   "group flex items-center justify-between rounded-2xl border-l-4 px-4 py-3 text-sm font-medium transition-all",
                   active
-                    ? "border-slate-950 bg-slate-950 text-white shadow-sm"
-                    : "border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                    ? "border-emerald-400 bg-[color:var(--active-item)] text-white shadow-[0_12px_26px_rgba(0,0,0,0.28)]"
+                    : "border-transparent text-[color:var(--sidebar-muted)] hover:bg-white/5 hover:text-white"
                 )}
               >
                 <span className="flex items-center gap-3">
                   <Icon
                     className={cn(
                       "h-4 w-4 shrink-0 transition-colors",
-                      active ? "text-white" : "text-slate-400 group-hover:text-slate-900"
+                      active ? "text-white" : "text-[color:var(--sidebar-muted)] group-hover:text-white"
                     )}
                   />
                   {item.label}
@@ -153,8 +159,8 @@ export function AppShell({
                   <Badge
                     variant={active ? "secondary" : "outline"}
                     className={cn(
-                      "border-0 px-2 py-0.5 text-[11px]",
-                      active && "bg-white/10 text-white"
+                      "border-0 bg-white/10 px-2 py-0.5 text-[11px]",
+                    active && "bg-white/10 text-white"
                     )}
                   >
                     {item.badge}
@@ -167,39 +173,63 @@ export function AppShell({
       </ScrollArea>
 
       <div className="space-y-4 p-5">
-        <Card className="bg-slate-950 p-4 text-white shadow-none">
+        <Card className="border-white/10 bg-white/5 p-4 text-white shadow-none">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-white/10 p-2">
-              <Settings2 className="h-4 w-4" />
+              <Settings2 className="h-4 w-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-medium">Sprint 1 listo</p>
-              <p className="text-xs text-slate-300">
-                Base visual preparada para Supabase y roles.
+              <p className="text-sm font-medium text-white">Sprint 1.2</p>
+              <p className="text-xs text-[color:var(--sidebar-muted)]">
+                Visual premium lista para crecer.
               </p>
             </div>
           </div>
         </Card>
+
+        <div className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--sidebar-muted)]">
+            Usuario
+          </p>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-white">
+                {userLabel ?? "Usuario activo"}
+              </p>
+              <p className="mt-1 text-xs text-[color:var(--sidebar-muted)]">
+                Acceso al panel interno
+              </p>
+            </div>
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-10 w-10 border-white/10 bg-white/5 text-white hover:bg-white/10"
+              onClick={() => router.push("/")}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(148,163,184,0.12),_transparent_32%),linear-gradient(180deg,_#f8fafc_0%,_#f3f6fb_100%)]">
+    <div className="min-h-screen bg-[color:var(--app-background)] text-[color:var(--app-foreground)]">
       <div className="flex min-h-screen w-full">
-        <aside className="hidden w-[312px] shrink-0 border-r border-slate-200/80 bg-white/90 shadow-[0_18px_60px_rgba(15,23,42,0.06)] lg:block">
+        <aside className="hidden w-[296px] shrink-0 border-r border-slate-800/70 bg-[color:var(--sidebar-background)] lg:block">
           {sidebar}
         </aside>
 
         <Sheet>
           <div className="fixed left-4 top-4 z-40 lg:hidden">
             <SheetTrigger asChild>
-              <Button size="icon" variant="outline" className="rounded-2xl bg-white">
+              <Button size="icon" className="rounded-2xl bg-slate-950 text-white hover:bg-slate-900">
                 <Menu className="h-4 w-4" />
               </Button>
             </SheetTrigger>
           </div>
-          <SheetContent side="left" className="w-[86vw] p-0 sm:max-w-sm">
+          <SheetContent side="left" className="w-[88vw] border-0 p-0 sm:max-w-sm">
             {sidebar}
           </SheetContent>
         </Sheet>
@@ -207,7 +237,7 @@ export function AppShell({
         <main className="flex min-w-0 flex-1 flex-col px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
           <SupportBanner />
 
-          <header className="mb-5 flex flex-col gap-4 rounded-[28px] border border-slate-200/80 bg-white/85 px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.04)] backdrop-blur sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+          <header className="mb-4 flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_rgba(15,23,42,0.05)] lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
                 {roleLabel}
@@ -219,19 +249,13 @@ export function AppShell({
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {headerAction}
-              <Button
-                variant="outline"
-                className="rounded-2xl"
-                onClick={() => router.push("/")}
-              >
+              <Button variant="outline" className="rounded-2xl" onClick={() => router.push("/")}>
                 Volver al login
               </Button>
             </div>
           </header>
 
-          <div className="min-w-0 flex-1 pb-2">
-            {children}
-          </div>
+          <div className="min-w-0 flex-1 pb-2">{children}</div>
         </main>
       </div>
     </div>

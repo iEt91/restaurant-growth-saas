@@ -22,6 +22,7 @@ export default function SuperAdminLayout({
       subtitle="Gestión global de restaurantes, usuarios y soporte."
       nav={nav}
       roleLabel="Super Admin"
+      userLabel="Lucía Gómez"
     >
       {children}
     </AppShell>

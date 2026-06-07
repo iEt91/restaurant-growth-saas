@@ -1,15 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { APP_VERSION, VERSION_HISTORY } from "@/config/version";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { APP_VERSION, VERSION_HISTORY } from "@/config/version";
 
 const sections = [
   "Restaurante",
@@ -17,164 +16,165 @@ const sections = [
   "Horarios",
   "Reservas",
   "Plano",
-  "Menú",
+  "Menu",
   "Usuarios",
-  "Página inicial",
+  "Pagina inicial",
+] as const;
+
+const hours = [
+  ["Lunes", "12:00 - 00:00", true],
+  ["Martes", "12:00 - 00:00", true],
+  ["Miercoles", "12:00 - 00:00", true],
+  ["Jueves", "12:00 - 00:00", true],
+  ["Viernes", "12:00 - 01:00", true],
+  ["Sabado", "12:00 - 01:00", true],
+  ["Domingo", "12:00 - 23:00", true],
 ] as const;
 
 export default function SettingsPage() {
   const [autoConfirm, setAutoConfirm] = React.useState(true);
   const [waitlist, setWaitlist] = React.useState(true);
-  const [defaultView, setDefaultView] = React.useState("Dashboard");
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Configuración</CardTitle>
-        <p className="text-sm text-slate-500">
-          Estructura lista para administrar reglas, vistas y módulos.
-        </p>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="Reservas">
-          <TabsList className="mb-6 flex w-full flex-wrap gap-2 rounded-[22px] bg-slate-100 p-2">
-            {sections.map((section) => (
-              <TabsTrigger key={section} value={section}>
-                {section}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value="Restaurante">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Nombre del restaurante</Label>
-                <Input defaultValue="Avenida 312" />
-              </div>
-              <div className="space-y-2">
-                <Label>Giro</Label>
-                <Input defaultValue="Contemporánea" />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="Sucursales">
-            <div className="space-y-3">
-              {["Palermo", "Belgrano", "Recoleta"].map((branch) => (
-                <div key={branch} className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
-                  <p className="font-medium text-slate-700">{branch}</p>
-                  <Badge variant="secondary">Activa</Badge>
-                </div>
+    <div className="space-y-5">
+      <Card>
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <CardTitle>Configuracion</CardTitle>
+          <p className="text-sm text-slate-500">
+            Tabs horizontales y layout dividido entre horas y reservas.
+          </p>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <Tabs defaultValue="Reservas">
+            <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-2 rounded-[24px] bg-slate-100 p-2">
+              {sections.map((section) => (
+                <TabsTrigger key={section} value={section} className="rounded-2xl px-4 py-2">
+                  {section}
+                </TabsTrigger>
               ))}
-            </div>
-          </TabsContent>
+            </TabsList>
 
-          <TabsContent value="Horarios">
-            <div className="grid gap-4 md:grid-cols-2">
-              {[
-                ["Lunes a jueves", "12:00 - 00:00"],
-                ["Viernes y sábado", "12:00 - 01:00"],
-                ["Domingo", "12:00 - 23:00"],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-slate-200 p-4">
-                  <p className="text-sm font-medium text-slate-700">{label}</p>
-                  <p className="mt-1 text-sm text-slate-500">{value}</p>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
+            <TabsContent value="Horarios">
+              <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Horarios</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {hours.map(([day, range]) => (
+                      <div key={day} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p className="font-medium text-slate-950">{day}</p>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700">
+                          {range}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
 
-          <TabsContent value="Reservas">
-            <div className="space-y-4">
-              {[
-                ["Confirmar automáticamente reservas si hay disponibilidad", autoConfirm, setAutoConfirm],
-                ["Permitir lista de espera", waitlist, setWaitlist],
-              ].map(([label, checked, setChecked]) => (
-                <div
-                  key={label as string}
-                  className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4"
-                >
-                  <div>
-                    <p className="font-medium text-slate-700">{label as string}</p>
-                    <p className="text-sm text-slate-500">Mock de switch listo para la lógica real.</p>
-                  </div>
-                  <Switch checked={checked as boolean} onCheckedChange={setChecked as (checked: boolean) => void} />
-                </div>
-              ))}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Configuracion de reservas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4">
+                      <div>
+                        <p className="font-medium text-slate-950">Confirmar automaticamente</p>
+                        <p className="text-sm text-slate-500">Si hay disponibilidad</p>
+                      </div>
+                      <Switch checked={autoConfirm} onCheckedChange={setAutoConfirm} />
+                    </div>
 
-              <Separator />
+                    <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4">
+                      <div>
+                        <p className="font-medium text-slate-950">Permitir lista de espera</p>
+                        <p className="text-sm text-slate-500">Para horarios completos</p>
+                      </div>
+                      <Switch checked={waitlist} onCheckedChange={setWaitlist} />
+                    </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Duración estándar de reserva</Label>
-                  <Input defaultValue="90 minutos" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Intervalo entre reservas</Label>
-                  <Input defaultValue="15 minutos" />
-                </div>
+                    <div className="space-y-2">
+                      <Label>Duracion estandar de reserva</Label>
+                      <Input defaultValue="90 minutos" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Intervalo entre reservas</Label>
+                      <Input defaultValue="15 minutos" />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="Plano">
-            <p className="text-sm leading-7 text-slate-500">
-              La vista operativa del plano ya está en su propia pantalla.
-            </p>
-          </TabsContent>
-
-          <TabsContent value="Menú">
-            <p className="text-sm leading-7 text-slate-500">
-              La estructura del menú está lista para conectar categorías y productos.
-            </p>
-          </TabsContent>
-
-          <TabsContent value="Usuarios">
-            <p className="text-sm leading-7 text-slate-500">
-              Aquí irán permisos, invitaciones y asignación de roles por sucursal.
-            </p>
-          </TabsContent>
-
-          <TabsContent value="Página inicial">
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">
-                Elegí qué pantalla abrir primero al ingresar al panel.
-              </p>
-              <div className="grid gap-3 md:grid-cols-5">
-                {["Dashboard", "Reservas", "Plano de Mesas", "Clientes", "Reportes"].map((view) => (
-                  <Button
-                    key={view}
-                    variant={defaultView === view ? "default" : "outline"}
-                    className="rounded-2xl"
-                    onClick={() => setDefaultView(view)}
-                  >
-                    {view}
-                  </Button>
-                ))}
+            <TabsContent value="Reservas">
+              <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Configuracion general</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                      Vista base lista para seguir creciendo con reglas reales.
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Reservas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4">
+                      <div>
+                        <p className="font-medium text-slate-950">Confirmar automaticamente</p>
+                        <p className="text-sm text-slate-500">Si hay disponibilidad</p>
+                      </div>
+                      <Switch checked={autoConfirm} onCheckedChange={setAutoConfirm} />
+                    </div>
+                    <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4">
+                      <div>
+                        <p className="font-medium text-slate-950">Permitir lista de espera</p>
+                        <p className="text-sm text-slate-500">Para horarios completos</p>
+                      </div>
+                      <Switch checked={waitlist} onCheckedChange={setWaitlist} />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-        <div className="mt-8 rounded-[28px] border border-slate-200 bg-slate-50 p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            </TabsContent>
+
+            {sections
+              .filter((section) => section !== "Horarios" && section !== "Reservas")
+              .map((section) => (
+                <TabsContent key={section} value={section}>
+                  <Card>
+                    <CardContent className="p-5 text-sm text-slate-500">
+                      Seccion {section} lista para seguir creciendo en Sprint 2.
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              ))}
+          </Tabs>
+
+          <Separator className="my-5" />
+
+          <div className="flex flex-col gap-3 rounded-[28px] border border-slate-200 bg-slate-50 p-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-400">
-                Versión
+              <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-400">
+                Version
               </p>
               <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
                 {APP_VERSION}
               </p>
-              <p className="mt-2 text-sm text-slate-500">
-                Estructura preparada para evoluciones futuras del producto.
+              <p className="mt-1 text-sm text-slate-500">
+                {VERSION_HISTORY[0].notes[0]}
               </p>
             </div>
-            <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-              <p className="font-medium text-slate-700">Última actualización</p>
-              <p className="mt-1">{VERSION_HISTORY[0].date}</p>
-            </div>
+            <Badge variant="outline" className="w-fit">
+              Ultima actualizacion: {VERSION_HISTORY[0].date}
+            </Badge>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

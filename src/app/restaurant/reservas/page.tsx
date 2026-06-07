@@ -2,122 +2,126 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { reservations } from "@/data/mock";
+import { CalendarDays, Plus, SlidersHorizontal } from "lucide-react";
 
-const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const filters = [
+  ["Todas", "28"],
+  ["Pendientes", "4"],
+  ["Confirmadas", "24"],
+  ["Ocupadas", "10"],
+  ["Completadas", "18"],
+  ["Canceladas", "3"],
+  ["No-show", "2"],
+] as const;
 
 const statusStyles: Record<string, string> = {
   Pendiente: "bg-amber-50 text-amber-700 border-amber-200",
-  Confirmada: "bg-sky-50 text-sky-700 border-sky-200",
+  Confirmada: "bg-emerald-50 text-emerald-700 border-emerald-200",
   Ocupada: "bg-violet-50 text-violet-700 border-violet-200",
-  Completada: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  Completada: "bg-slate-100 text-slate-700 border-slate-200",
   Cancelada: "bg-rose-50 text-rose-700 border-rose-200",
   "No-show": "bg-slate-100 text-slate-600 border-slate-200",
 };
 
 export default function ReservationsPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <Card>
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <CardTitle>Calendario simple</CardTitle>
+            <CardTitle>Reservas</CardTitle>
             <p className="text-sm text-slate-500">
-              Vista semanal mockeada para entender la operación diaria.
+              Tabla compacta con filtros y estados visibles.
             </p>
           </div>
-          <Button className="rounded-2xl">Nueva reserva</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" className="rounded-2xl">
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              Filtros
+            </Button>
+            <Button variant="outline" className="rounded-2xl">
+              <CalendarDays className="mr-2 h-4 w-4" />
+              12 jun 2024
+            </Button>
+            <Button className="rounded-2xl">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Reserva
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-7">
-            {days.map((day) => (
-              <div
-                key={day}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center text-sm font-medium text-slate-600"
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
+            {filters.map(([label, value]) => (
+              <button
+                key={label}
+                type="button"
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                  label === "Todas"
+                    ? "border-slate-950 bg-slate-950 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"
+                }`}
               >
-                {day}
-              </div>
+                {label} <span className="ml-1 text-xs opacity-70">{value}</span>
+              </button>
             ))}
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {reservations.map((reservation) => (
-              <div
-                key={reservation.id}
-                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-slate-950">
-                    {reservation.guestName}
-                  </p>
-                  <Badge
-                    variant="outline"
-                    className={statusStyles[reservation.status]}
-                  >
-                    {reservation.status}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-sm text-slate-500">
-                  {reservation.time} · {reservation.partySize} personas
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Mesa {reservation.tableName} · {reservation.channel}
-                </p>
-              </div>
+
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead className="bg-slate-50">
+                <tr className="text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  <th className="px-4 py-3">Hora</th>
+                  <th className="px-4 py-3">Cliente</th>
+                  <th className="px-4 py-3">Personas</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3">Mesa</th>
+                  <th className="px-4 py-3">Canal</th>
+                  <th className="px-4 py-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {reservations.map((reservation) => (
+                  <tr key={reservation.id} className="text-sm text-slate-700">
+                    <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-950">
+                      {reservation.time}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-slate-950">{reservation.guestName}</div>
+                      <div className="mt-1 text-xs text-slate-500">{reservation.phone}</div>
+                    </td>
+                    <td className="px-4 py-3">{reservation.partySize}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant="outline" className={statusStyles[reservation.status]}>
+                        {reservation.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">{reservation.tableName}</td>
+                    <td className="px-4 py-3">{reservation.channel}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex gap-2">
+                        <Button variant="outline" size="sm" className="rounded-xl">
+                          Ver
+                        </Button>
+                        <Button variant="outline" size="sm" className="rounded-xl">
+                          Editar
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            {Object.entries(statusStyles).map(([status, className]) => (
+              <Badge key={status} variant="outline" className={className}>
+                {status}
+              </Badge>
             ))}
           </div>
         </CardContent>
       </Card>
-
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Lista de reservas</CardTitle>
-            <p className="text-sm text-slate-500">
-              Los estados están listos para crecer hacia la lógica real.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {reservations.map((reservation) => (
-              <div
-                key={reservation.id}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="font-medium text-slate-950">{reservation.guestName}</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {reservation.phone} · {reservation.notes ?? "Sin notas"}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">{reservation.date}</Badge>
-                  <Badge variant="outline">{reservation.status}</Badge>
-                  <Badge variant={reservation.vip ? "warning" : "secondary"}>
-                    {reservation.vip ? "VIP" : "Normal"}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Estados disponibles</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Object.entries(statusStyles).map(([status, className]) => (
-              <div
-                key={status}
-                className={`flex items-center justify-between rounded-2xl border px-4 py-3 ${className}`}
-              >
-                <p className="text-sm font-medium">{status}</p>
-                <Badge variant="outline" className="border-white/40 bg-white/60">
-                  Mock
-                </Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </section>
     </div>
   );
 }
