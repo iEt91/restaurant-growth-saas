@@ -112,8 +112,9 @@ function validateScheduleBlock(start: string, end: string) {
     return "Revisá el rango horario.";
   }
 
-  if (endMinutes < startMinutes && durationMinutes > 12 * 60) {
-    return "El bloque que cruza medianoche es demasiado largo.";
+  const isFullDay = start === "00:00" && end === "23:59";
+  if (!isFullDay && durationMinutes > 18 * 60) {
+    return "El bloque no puede superar las 18 horas.";
   }
 
   return null;
