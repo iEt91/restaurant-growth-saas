@@ -96,7 +96,7 @@ export function AppShell({
       <div className="space-y-5 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.32)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0f172a] text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.24)]">
               {brand.slice(0, 1)}
             </div>
             <div>
@@ -111,13 +111,13 @@ export function AppShell({
               </p>
             </div>
           </div>
-          <Badge className="border-white/10 bg-white/5 text-white">
+          <Badge className="border-transparent bg-[#0f172a] text-white">
             {roleLabel}
           </Badge>
         </div>
 
         {supportMode.active && supportMode.restaurant ? (
-          <Card className="border border-white/10 bg-white/5 p-4 shadow-none">
+          <Card className="border-0 bg-[#0b1220] p-4 shadow-none">
             <div className="flex items-center gap-2 text-sm font-medium text-white">
               <Shield className="h-4 w-4 text-amber-400" />
               Modo soporte
@@ -162,7 +162,9 @@ export function AppShell({
                     variant={active ? "secondary" : "outline"}
                     className={cn(
                       "border-0 bg-white/10 px-2 py-0.5 text-[11px]",
-                      active && "bg-white/10 text-white"
+                      active
+                        ? "bg-white/10 text-white"
+                        : "text-[color:var(--sidebar-muted)]"
                     )}
                   >
                     {item.badge}
@@ -175,9 +177,9 @@ export function AppShell({
       </div>
 
       <div className="space-y-4 p-5">
-        <Card className="border-white/10 bg-white/5 p-4 text-white shadow-none">
+        <Card className="border-0 bg-[#0b1220] p-4 text-white shadow-none">
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-white/10 p-2">
+            <div className="rounded-2xl bg-white/5 p-2">
               <Settings2 className="h-4 w-4 text-white" />
             </div>
             <div>
@@ -189,7 +191,7 @@ export function AppShell({
           </div>
         </Card>
 
-        <div className="rounded-3xl border border-white/10 bg-white/5 px-4 py-4">
+        <div className="rounded-3xl bg-[#0b1220] px-4 py-4">
           <p className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--sidebar-muted)]">
             {APP_VERSION}
           </p>
@@ -205,7 +207,7 @@ export function AppShell({
             <Button
               size="icon"
               variant="outline"
-              className="h-10 w-10 border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="h-10 w-10 border-0 bg-white/5 text-white hover:bg-white/10"
               onClick={() => router.push("/")}
             >
               <LogOut className="h-4 w-4" />
