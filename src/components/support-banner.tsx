@@ -19,7 +19,7 @@ export function SupportBanner() {
 
   return (
     <div className="mb-4 bg-transparent">
-      <div className="inline-flex w-fit max-w-full flex-col gap-3 rounded-3xl border border-amber-300/30 bg-[linear-gradient(90deg,rgba(17,24,39,0.96),rgba(31,41,55,0.96))] px-4 py-3 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex flex-col gap-3 rounded-3xl border border-amber-300/30 bg-[linear-gradient(90deg,rgba(17,24,39,0.96),rgba(31,41,55,0.96))] px-4 py-3 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Badge
             variant="warning"
