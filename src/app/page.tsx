@@ -16,7 +16,7 @@ export default function LoginPage() {
     const email = String(form.get("email") ?? "").toLowerCase();
 
     if (email.includes("admin") || email.includes("super")) {
-      router.push("/super-admin/restaurantes");
+      router.push("/super-admin/restaurants");
       return;
     }
 

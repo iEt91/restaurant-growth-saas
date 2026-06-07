@@ -2,7 +2,7 @@ import { AppShell, type NavItem } from "@/components/app-shell";
 import type { ReactNode } from "react";
 
 const nav: NavItem[] = [
-  { href: "/super-admin/restaurantes", label: "Restaurantes", icon: "building" },
+  { href: "/super-admin/restaurants", label: "Restaurantes", icon: "building" },
   { href: "/super-admin/sucursales", label: "Sucursales", icon: "branches" },
   { href: "/super-admin/usuarios", label: "Usuarios", icon: "users" },
   { href: "/super-admin/suscripciones", label: "Suscripciones", icon: "subscriptions" },
