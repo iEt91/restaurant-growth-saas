@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import type {
+  Customer,
+  CustomerConsumptionHistoryItem,
+  CustomerReservationHistoryItem,
   MenuItem,
   RestaurantTable,
   ReservationStatus,
@@ -12,16 +15,18 @@ import {
   restaurantTables,
   type RestaurantReservation,
 } from "@/data/restaurant-ops";
-import { menuItems as seededMenuItems } from "@/data/mock";
+import { customers as seededCustomers, menuItems as seededMenuItems } from "@/data/mock";
 
 type TableOverrideStatus = RestaurantTable["status"];
 
 type RestaurantFlowContextValue = {
+  customers: Customer[];
   reservations: RestaurantReservation[];
   tables: RestaurantTable[];
   menuItems: MenuItem[];
   standardReservationDurationMinutes: number;
   intervalBetweenReservationsMinutes: number;
+  saveCustomer: (customer: Customer) => void;
   saveReservation: (reservation: RestaurantReservation) => void;
   saveMenuItem: (menuItem: MenuItem) => void;
   deleteMenuItem: (menuItemId: string) => void;
@@ -53,6 +58,107 @@ const RestaurantFlowContext = React.createContext<RestaurantFlowContextValue | n
 );
 
 const activeReservationStatuses = new Set<ReservationStatus>(["Confirmada", "Ocupada"]);
+
+function normalizeContactValue(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function getCustomerContactKey(phone: string, email: string) {
+  return normalizeContactValue(email || phone);
+}
+
+function buildContactKeys(customer: Customer) {
+  return Array.from(
+    new Set([
+      ...(customer.contactKeys ?? []),
+      getCustomerContactKey(customer.phone, customer.email),
+    ])
+  );
+}
+
+function splitListField(value: string) {
+  return value
+    .split(/[,;]+/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function mergeUniqueStrings(base: string[], next: string[]) {
+  return Array.from(new Set([...base, ...next].filter(Boolean)));
+}
+
+function buildCustomerName(firstName: string, lastName: string) {
+  return `${firstName} ${lastName}`.trim();
+}
+
+function buildReservationDateLabel(date: string) {
+  const [year, month, day] = date.split("-");
+
+  if (!year || !month || !day) {
+    return date;
+  }
+
+  return `${day}/${month}/${year}`;
+}
+
+function buildCustomerFromReservation(
+  reservation: RestaurantReservation
+): Customer {
+  const fullName = buildCustomerName(reservation.firstName, reservation.lastName);
+
+  return {
+    id: crypto.randomUUID(),
+    fullName,
+    firstName: reservation.firstName,
+    lastName: reservation.lastName,
+    phone: reservation.phone,
+    email: reservation.email,
+    birthday: reservation.birthday,
+    visits: 0,
+    totalSpent: 0,
+    averageTicket: 0,
+    preferences: splitListField(reservation.preferences),
+    allergies: splitListField(reservation.allergies),
+    lastVisit: "",
+    reservations: [],
+    notes: reservation.comments,
+    vip: false,
+    contactKeys: [getCustomerContactKey(reservation.phone, reservation.email)],
+    reservationHistory: [],
+    consumptionHistory: [],
+    favoriteProducts: [],
+  };
+}
+
+function buildCustomerReservationHistoryItem(
+  reservation: RestaurantReservation
+): CustomerReservationHistoryItem {
+  return {
+    id: reservation.id,
+    date: reservation.date,
+    time: reservation.time,
+    status: reservation.status,
+    tableName: reservation.tableName,
+    partySize: reservation.partySize,
+    channel: reservation.channel,
+  };
+}
+
+function buildCustomerConsumptionHistoryItem(
+  reservation: RestaurantReservation
+): CustomerConsumptionHistoryItem {
+  const items = reservation.consumptionItems ?? [];
+  const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+
+  return {
+    id: `consumption-${reservation.id}`,
+    reservationId: reservation.id,
+    date: reservation.date,
+    tableName: reservation.tableName,
+    items,
+    subtotal,
+  };
+}
 
 function buildGuestName(reservation: RestaurantReservation) {
   return `${reservation.firstName} ${reservation.lastName}`.trim();
@@ -128,8 +234,22 @@ export function RestaurantFlowProvider({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialCustomerProfiles = React.useMemo(
+    () =>
+      seededCustomers.map((customer) => ({
+        ...customer,
+        contactKeys: buildContactKeys(customer),
+        reservationHistory: customer.reservationHistory ?? [],
+        consumptionHistory: customer.consumptionHistory ?? [],
+        favoriteProducts: customer.favoriteProducts ?? [],
+      })),
+    []
+  );
   const [reservations, setReservations] = React.useState<RestaurantReservation[]>(
     restaurantReservations
+  );
+  const [customerProfiles, setCustomerProfiles] = React.useState<Customer[]>(
+    initialCustomerProfiles
   );
   const [menuItems, setMenuItems] = React.useState<MenuItem[]>(seededMenuItems);
   const [tableOverrides, setTableOverrides] = React.useState<
@@ -201,6 +321,91 @@ export function RestaurantFlowProvider({
     [reservations]
   );
 
+  const saveCustomer = React.useCallback((customer: Customer) => {
+    setCustomerProfiles((current) => {
+      const nextCustomer: Customer = {
+        ...customer,
+        contactKeys: buildContactKeys(customer),
+        reservationHistory: customer.reservationHistory ?? [],
+        consumptionHistory: customer.consumptionHistory ?? [],
+        favoriteProducts: customer.favoriteProducts ?? [],
+      };
+
+      const existingIndexById = current.findIndex((item) => item.id === nextCustomer.id);
+      const existingIndexByContact =
+        existingIndexById >= 0
+          ? existingIndexById
+          : current.findIndex((item) =>
+              buildContactKeys(item).some((contactKey) =>
+                (nextCustomer.contactKeys ?? []).includes(contactKey)
+              )
+            );
+
+      if (existingIndexByContact >= 0) {
+        return current.map((item, index) =>
+          index === existingIndexByContact ? nextCustomer : item
+        );
+      }
+
+      return [nextCustomer, ...current];
+    });
+  }, []);
+
+  const syncCustomerProfileForReservation = React.useCallback(
+    (reservation: RestaurantReservation) => {
+      setCustomerProfiles((current) => {
+        const reservationContactKey = getCustomerContactKey(
+          reservation.phone,
+          reservation.email
+        );
+        const existingIndex = current.findIndex((item) =>
+          buildContactKeys(item).includes(reservationContactKey)
+        );
+
+        const baseCustomer =
+          existingIndex >= 0
+            ? current[existingIndex]
+            : buildCustomerFromReservation(reservation);
+
+        const nextCustomer: Customer = {
+          ...baseCustomer,
+          fullName: buildCustomerName(reservation.firstName, reservation.lastName),
+          firstName: reservation.firstName,
+          lastName: reservation.lastName,
+          phone: reservation.phone,
+          email: reservation.email,
+          birthday: reservation.birthday || baseCustomer.birthday,
+          preferences: mergeUniqueStrings(
+            baseCustomer.preferences,
+            splitListField(reservation.preferences)
+          ),
+          allergies: mergeUniqueStrings(
+            baseCustomer.allergies,
+            splitListField(reservation.allergies)
+          ),
+          notes: reservation.comments.trim() ? reservation.comments : baseCustomer.notes,
+          reservations: mergeUniqueStrings(baseCustomer.reservations, [
+            `${buildReservationDateLabel(reservation.date)} ${reservation.time}`,
+          ]),
+          contactKeys: buildContactKeys({
+            ...baseCustomer,
+            phone: reservation.phone,
+            email: reservation.email,
+          }),
+        };
+
+        if (existingIndex >= 0) {
+          return current.map((item, index) =>
+            index === existingIndex ? nextCustomer : item
+          );
+        }
+
+        return [nextCustomer, ...current];
+      });
+    },
+    []
+  );
+
   const tables = React.useMemo(() => {
     return restaurantTables.map((table) => {
       const activeReservation = getActiveReservationForTable(table.name);
@@ -224,6 +429,8 @@ export function RestaurantFlowProvider({
 
   const saveReservation = React.useCallback((reservation: RestaurantReservation) => {
     const tableId = findTableIdByName(reservation.tableName);
+
+    syncCustomerProfileForReservation(reservation);
 
     setReservations((current) => {
       const exists = current.some((item) => item.id === reservation.id);
@@ -255,7 +462,7 @@ export function RestaurantFlowProvider({
     });
 
     syncTableOverrideForReservation(tableId, reservation.status, setTableOverrides);
-  }, []);
+  }, [syncCustomerProfileForReservation]);
 
   const saveMenuItem = React.useCallback((menuItem: MenuItem) => {
     setMenuItems((current) => {
@@ -330,6 +537,147 @@ export function RestaurantFlowProvider({
     );
   }, []);
 
+  const customers = React.useMemo(() => {
+    const customerById = new Map<string, Customer>();
+    const contactIndex = new Map<string, string>();
+
+    function registerCustomer(customer: Customer) {
+      const nextCustomer: Customer = {
+        ...customer,
+        contactKeys: buildContactKeys(customer),
+        reservationHistory: customer.reservationHistory ?? [],
+        consumptionHistory: customer.consumptionHistory ?? [],
+        favoriteProducts: customer.favoriteProducts ?? [],
+      };
+
+      customerById.set(nextCustomer.id, nextCustomer);
+
+      for (const contactKey of nextCustomer.contactKeys ?? []) {
+        contactIndex.set(contactKey, nextCustomer.id);
+      }
+    }
+
+    for (const customer of customerProfiles) {
+      registerCustomer(customer);
+    }
+
+    for (const reservation of reservations) {
+      const reservationContactKey = getCustomerContactKey(reservation.phone, reservation.email);
+      const matchedCustomerId = contactIndex.get(reservationContactKey);
+      let currentCustomer = matchedCustomerId
+        ? customerById.get(matchedCustomerId) ?? null
+        : null;
+
+      if (!currentCustomer) {
+        currentCustomer = buildCustomerFromReservation(reservation);
+      }
+
+      const reservationHistory = [
+        ...(currentCustomer.reservationHistory ?? []),
+        buildCustomerReservationHistoryItem(reservation),
+      ];
+
+      const reservationLabel = `${buildReservationDateLabel(reservation.date)} ${reservation.time}`;
+      const updatedReservations = mergeUniqueStrings(currentCustomer.reservations, [
+        reservationLabel,
+      ]);
+      const updatedPreferences = mergeUniqueStrings(
+        currentCustomer.preferences,
+        splitListField(reservation.preferences)
+      );
+      const updatedAllergies = mergeUniqueStrings(
+        currentCustomer.allergies,
+        splitListField(reservation.allergies)
+      );
+
+      const consumptionHistory = [...(currentCustomer.consumptionHistory ?? [])];
+      const isCompletedReservation = reservation.status === "Completada";
+      const completedConsumption = isCompletedReservation
+        ? buildCustomerConsumptionHistoryItem(reservation)
+        : null;
+
+      if (completedConsumption) {
+        consumptionHistory.push(completedConsumption);
+      }
+
+      const favoriteProductCounts = new Map<string, number>();
+      for (const entry of consumptionHistory) {
+        for (const item of entry.items) {
+          favoriteProductCounts.set(
+            item.productName,
+            (favoriteProductCounts.get(item.productName) ?? 0) + item.quantity
+          );
+        }
+      }
+
+      const favoriteProducts = Array.from(favoriteProductCounts.entries())
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 3)
+        .map(([name]) => name);
+
+      const visits = currentCustomer.visits + (isCompletedReservation ? 1 : 0);
+      const totalSpent =
+        currentCustomer.totalSpent + (completedConsumption?.subtotal ?? 0);
+      const averageTicket = visits > 0 ? Math.round(totalSpent / visits) : 0;
+      const vip =
+        (currentCustomer.vip ?? false) ||
+        visits >= 10 ||
+        averageTicket >= 24000 ||
+        totalSpent >= 400000;
+      const latestCompletedReservation = reservationHistory
+        .filter((item) => item.status === "Completada")
+        .sort((left, right) =>
+          `${right.date}T${right.time}`.localeCompare(`${left.date}T${left.time}`)
+        )[0];
+
+      currentCustomer = {
+        ...currentCustomer,
+        fullName: currentCustomer.fullName || buildCustomerName(reservation.firstName, reservation.lastName),
+        firstName: currentCustomer.firstName ?? reservation.firstName,
+        lastName: currentCustomer.lastName ?? reservation.lastName,
+        phone: currentCustomer.phone || reservation.phone,
+        email: currentCustomer.email || reservation.email,
+        birthday: currentCustomer.birthday || reservation.birthday,
+        preferences: updatedPreferences,
+        allergies: updatedAllergies,
+        reservations: updatedReservations,
+        reservationHistory,
+        consumptionHistory,
+        visits,
+        totalSpent,
+        averageTicket,
+        lastVisit: latestCompletedReservation
+          ? `${buildReservationDateLabel(latestCompletedReservation.date)} - ${latestCompletedReservation.time}`
+          : currentCustomer.lastVisit,
+        favoriteProducts,
+        vip,
+        contactKeys: buildContactKeys({
+          ...currentCustomer,
+          phone: reservation.phone,
+          email: reservation.email,
+        }),
+      };
+
+      customerById.set(currentCustomer.id, currentCustomer);
+
+      for (const contactKey of currentCustomer.contactKeys ?? []) {
+        contactIndex.set(contactKey, currentCustomer.id);
+      }
+    }
+
+    return Array.from(customerById.values()).sort((left, right) => {
+      if (right.visits !== left.visits) {
+        return right.visits - left.visits;
+      }
+
+      if (right.totalSpent !== left.totalSpent) {
+        return right.totalSpent - left.totalSpent;
+      }
+
+      return left.fullName.localeCompare(right.fullName);
+    });
+  }, [customerProfiles, reservations]);
+
   const updateTableStatus = React.useCallback(
     (tableId: string, nextStatus: TableOverrideStatus) => {
       setTableOverrides((current) => ({
@@ -350,11 +698,13 @@ export function RestaurantFlowProvider({
 
   const value = React.useMemo<RestaurantFlowContextValue>(
     () => ({
+      customers,
       reservations,
       tables,
       menuItems,
       standardReservationDurationMinutes,
       intervalBetweenReservationsMinutes,
+      saveCustomer,
       saveReservation,
       saveMenuItem,
       deleteMenuItem,
@@ -374,6 +724,7 @@ export function RestaurantFlowProvider({
     }),
     [
       clearFocusedReservation,
+      customers,
       focusedReservationId,
       getActiveReservationForTable,
       getReservationById,
@@ -383,6 +734,7 @@ export function RestaurantFlowProvider({
       openReservationDetail,
       menuItems,
       reservations,
+      saveCustomer,
       saveReservation,
       saveMenuItem,
       deleteMenuItem,

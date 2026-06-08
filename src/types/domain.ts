@@ -64,6 +64,25 @@ export interface Reservation {
   vip?: boolean;
 }
 
+export interface CustomerReservationHistoryItem {
+  id: string;
+  date: string;
+  time: string;
+  status: ReservationStatus;
+  tableName: string;
+  partySize: number;
+  channel: string;
+}
+
+export interface CustomerConsumptionHistoryItem {
+  id: string;
+  reservationId: string;
+  date: string;
+  tableName: string;
+  items: TableConsumptionItem[];
+  subtotal: number;
+}
+
 export interface TableConsumptionItem {
   id: string;
   reservationId: string;
@@ -85,6 +104,8 @@ export interface TableConsumptionItem {
 export interface Customer {
   id: string;
   fullName: string;
+  firstName?: string;
+  lastName?: string;
   phone: string;
   email: string;
   birthday: string;
@@ -95,7 +116,13 @@ export interface Customer {
   allergies: string[];
   lastVisit: string;
   reservations: string[];
+  notes?: string;
+  birthdaySoon?: boolean;
   vip?: boolean;
+  contactKeys?: string[];
+  reservationHistory?: CustomerReservationHistoryItem[];
+  consumptionHistory?: CustomerConsumptionHistoryItem[];
+  favoriteProducts?: string[];
 }
 
 export interface RestaurantTable {
