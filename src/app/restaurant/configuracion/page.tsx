@@ -266,13 +266,12 @@ export default function SettingsPage() {
                               </p>
                             </div>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="outline"
-                              className="h-9 rounded-2xl"
+                              className="h-9 w-9 rounded-full"
                               onClick={() => openAddBlockDialog(day)}
                             >
-                              <Plus className="mr-2 h-4 w-4" />
-                              +
+                              <Plus className="h-4 w-4" />
                             </Button>
                           </div>
 
