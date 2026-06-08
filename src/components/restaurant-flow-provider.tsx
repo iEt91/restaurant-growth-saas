@@ -652,10 +652,32 @@ export function RestaurantFlowProvider({
     []
   );
 
+  const normalizedTableOverrides = React.useMemo(() => {
+    const nextOverrides = { ...tableOverrides };
+
+    for (const table of restaurantTables) {
+      const hasActiveReservation = reservations.some(
+        (reservation) =>
+          reservation.tableName === table.name &&
+          activeReservationStatuses.has(reservation.status)
+      );
+      const overrideStatus = nextOverrides[table.id];
+
+      if (
+        !hasActiveReservation &&
+        (overrideStatus === "Ocupada" || overrideStatus === "Reservada")
+      ) {
+        nextOverrides[table.id] = "Libre";
+      }
+    }
+
+    return nextOverrides;
+  }, [reservations, tableOverrides]);
+
   const tables = React.useMemo(() => {
     return restaurantTables.map((table) => {
       const activeReservation = getActiveReservationForTable(table.name);
-      const overrideStatus = tableOverrides[table.id];
+      const overrideStatus = normalizedTableOverrides[table.id];
       const status = getSyncedTableStatus({
         baseStatus: table.status,
         overrideStatus,
@@ -669,7 +691,7 @@ export function RestaurantFlowProvider({
         reservationTime: activeReservation ? activeReservation.time : undefined,
       };
     });
-  }, [getActiveReservationForTable, tableOverrides]);
+  }, [getActiveReservationForTable, normalizedTableOverrides]);
 
   const saveReservation = React.useCallback(
     (reservation: RestaurantReservation): ReservationMutationResult => {

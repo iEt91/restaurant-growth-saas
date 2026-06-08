@@ -43,6 +43,8 @@ export type ReportDailyRow = {
 
 export type ReportAnalytics = {
   referenceDate: string;
+  todayDate: string | null;
+  todayLabel: string | null;
   periodRange: ReportDateRange;
   selectedLabel: string;
   comparisonSales: {
@@ -95,6 +97,20 @@ function parseIsoDate(value: string) {
 
 function formatIsoDate(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+export function formatDisplayDate(value: string) {
+  const parsedDate = parseIsoDate(value);
+
+  if (!parsedDate) {
+    return value;
+  }
+
+  const day = String(parsedDate.getUTCDate()).padStart(2, "0");
+  const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
+  const year = parsedDate.getUTCFullYear();
+
+  return `${day}/${month}/${year}`;
 }
 
 function shiftIsoDate(value: string, offsetDays: number) {
@@ -177,15 +193,7 @@ function buildPeriodRange(
 }
 
 function formatDayLabel(date: string) {
-  const parsedDate = parseIsoDate(date);
-
-  if (!parsedDate) {
-    return date;
-  }
-
-  const day = String(parsedDate.getUTCDate()).padStart(2, "0");
-  const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
-  return `${day}/${month}`;
+  return formatDisplayDate(date);
 }
 
 function buildDailyRows(
@@ -375,13 +383,17 @@ function buildCustomerMetrics(
   };
 }
 
-function buildSalesComparison(reservations: RestaurantReservation[], referenceDate: string) {
+function buildSalesComparison(
+  reservations: RestaurantReservation[],
+  referenceDate: string,
+  todayDate: string | null
+) {
   const salesOnDate = (date: string) =>
     reservations
       .filter((reservation) => reservation.date === date && reservation.status === "Completada")
       .reduce((sum, reservation) => sum + getReservationSubtotal(reservation), 0);
 
-  const today = salesOnDate(referenceDate);
+  const today = todayDate ? salesOnDate(todayDate) : 0;
   const weekRange = buildPeriodRange("Semana", referenceDate, {
     from: referenceDate,
     to: referenceDate,
@@ -409,6 +421,7 @@ export function buildReportAnalytics({
   customers,
   tables,
   menuItems,
+  todayDate,
   period,
   customRange,
 }: {
@@ -416,6 +429,7 @@ export function buildReportAnalytics({
   customers: Customer[];
   tables: RestaurantTable[];
   menuItems: MenuItem[];
+  todayDate: string | null;
   period: ReportPeriod;
   customRange: ReportDateRange;
 }): ReportAnalytics {
@@ -453,12 +467,14 @@ export function buildReportAnalytics({
 
   return {
     referenceDate,
+    todayDate,
+    todayLabel: todayDate ? formatDisplayDate(todayDate) : null,
     periodRange,
     selectedLabel:
       period === "Personalizado"
-        ? `${periodRange.from} al ${periodRange.to}`
+        ? `${formatDisplayDate(periodRange.from)} al ${formatDisplayDate(periodRange.to)}`
         : period,
-    comparisonSales: buildSalesComparison(reservations, referenceDate),
+    comparisonSales: buildSalesComparison(reservations, referenceDate, todayDate),
     salesTotal,
     reservationCounts: {
       total: periodReservations.length,

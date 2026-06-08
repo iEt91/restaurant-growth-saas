@@ -54,6 +54,14 @@ function formatPercent(value: number) {
   return `${value.toFixed(0)}%`;
 }
 
+function getLocalIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 function csvEscape(value: string) {
   if (/[;\n"]/g.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
@@ -66,6 +74,7 @@ function buildCsvPayload(analytics: ReportAnalytics) {
   const rows: string[][] = [
     ["Seccion", "Campo", "Valor"],
     ["Resumen", "Periodo", analytics.selectedLabel],
+    ["Resumen", "Fecha de ventas hoy", analytics.todayLabel ?? "Pendiente"],
     ["Ventas", "Ventas totales", String(analytics.salesTotal)],
     ["Ventas", "Ventas hoy", String(analytics.comparisonSales.today)],
     ["Ventas", "Ventas semana", String(analytics.comparisonSales.week)],
@@ -233,6 +242,12 @@ function buildPrintHtml(analytics: ReportAnalytics) {
             <p>Libres: ${analytics.occupancy.free}</p>
             <p>Porcentaje: ${analytics.occupancy.percentage}%</p>
           </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+          <h3>Ventas hoy</h3>
+          <p>Fecha: ${analytics.todayLabel ?? "Pendiente"}</p>
+          <p class="metric" style="font-size: 24px;">${formatMoney(analytics.comparisonSales.today)}</p>
         </div>
 
         <div class="card">
@@ -463,6 +478,7 @@ export default function ReportsPage() {
     () => getReportReferenceDate(reservations),
     [reservations]
   );
+  const [todayDate] = React.useState(() => getLocalIsoDate(new Date()));
   const [period, setPeriod] = React.useState<ReportPeriod>("Mes");
   const [customRange, setCustomRange] = React.useState({
     from: referenceDate,
@@ -476,10 +492,11 @@ export default function ReportsPage() {
         customers,
         tables,
         menuItems,
+        todayDate,
         period,
         customRange,
       }),
-    [reservations, customers, tables, menuItems, period, customRange]
+    [reservations, customers, tables, menuItems, todayDate, period, customRange]
   );
 
   const rankingCustomers = React.useMemo(
@@ -573,7 +590,7 @@ export default function ReportsPage() {
       icon: TrendingUp,
       label: "Ventas hoy",
       value: formatMoney(analytics.comparisonSales.today),
-      hint: analytics.referenceDate,
+      hint: analytics.todayLabel ?? "Calculando fecha...",
       variant: "info" as const,
     },
     {
