@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type {
+  MenuItem,
   RestaurantTable,
   ReservationStatus,
   TableConsumptionItem,
@@ -11,20 +12,24 @@ import {
   restaurantTables,
   type RestaurantReservation,
 } from "@/data/restaurant-ops";
+import { menuItems as seededMenuItems } from "@/data/mock";
 
 type TableOverrideStatus = RestaurantTable["status"];
 
 type RestaurantFlowContextValue = {
   reservations: RestaurantReservation[];
   tables: RestaurantTable[];
+  menuItems: MenuItem[];
   standardReservationDurationMinutes: number;
   intervalBetweenReservationsMinutes: number;
   saveReservation: (reservation: RestaurantReservation) => void;
+  saveMenuItem: (menuItem: MenuItem) => void;
   updateReservationStatus: (
     reservationId: string,
     nextStatus: ReservationStatus
   ) => void;
   updateTableStatus: (tableId: string, nextStatus: TableOverrideStatus) => void;
+  setMenuItemActive: (menuItemId: string, active: boolean) => void;
   setStandardReservationDurationMinutes: (minutes: number) => void;
   setIntervalBetweenReservationsMinutes: (minutes: number) => void;
   getReservationById: (reservationId: string | null) => RestaurantReservation | null;
@@ -125,6 +130,7 @@ export function RestaurantFlowProvider({
   const [reservations, setReservations] = React.useState<RestaurantReservation[]>(
     restaurantReservations
   );
+  const [menuItems, setMenuItems] = React.useState<MenuItem[]>(seededMenuItems);
   const [tableOverrides, setTableOverrides] = React.useState<
     Record<string, TableOverrideStatus>
   >({});
@@ -250,6 +256,18 @@ export function RestaurantFlowProvider({
     syncTableOverrideForReservation(tableId, reservation.status, setTableOverrides);
   }, []);
 
+  const saveMenuItem = React.useCallback((menuItem: MenuItem) => {
+    setMenuItems((current) => {
+      const exists = current.some((item) => item.id === menuItem.id);
+
+      if (exists) {
+        return current.map((item) => (item.id === menuItem.id ? menuItem : item));
+      }
+
+      return [menuItem, ...current];
+    });
+  }, []);
+
   const updateReservationStatus = React.useCallback(
     (
     reservationId: string,
@@ -294,13 +312,28 @@ export function RestaurantFlowProvider({
     []
   );
 
+  const setMenuItemActive = React.useCallback((menuItemId: string, active: boolean) => {
+    setMenuItems((current) =>
+      current.map((item) =>
+        item.id === menuItemId
+          ? {
+              ...item,
+              active,
+            }
+          : item
+      )
+    );
+  }, []);
+
   const updateTableStatus = React.useCallback(
     (tableId: string, nextStatus: TableOverrideStatus) => {
-    setTableOverrides((current) => ({
-      ...current,
-      [tableId]: nextStatus,
-    }));
-  }, []);
+      setTableOverrides((current) => ({
+        ...current,
+        [tableId]: nextStatus,
+      }));
+    },
+    []
+  );
 
   const openReservationDetail = React.useCallback((reservationId: string) => {
     setFocusedReservationId(reservationId);
@@ -314,11 +347,14 @@ export function RestaurantFlowProvider({
     () => ({
       reservations,
       tables,
+      menuItems,
       standardReservationDurationMinutes,
       intervalBetweenReservationsMinutes,
       saveReservation,
+      saveMenuItem,
       updateReservationStatus,
       updateTableStatus,
+      setMenuItemActive,
       setStandardReservationDurationMinutes,
       setIntervalBetweenReservationsMinutes,
       getReservationById,
@@ -339,10 +375,13 @@ export function RestaurantFlowProvider({
       getConsumptionItemsForReservation,
       intervalBetweenReservationsMinutes,
       openReservationDetail,
+      menuItems,
       reservations,
       saveReservation,
+      saveMenuItem,
       saveConsumptionItems,
       setIntervalBetweenReservationsMinutes,
+      setMenuItemActive,
       setStandardReservationDurationMinutes,
       standardReservationDurationMinutes,
       updateReservationStatus,

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { menuItems } from "@/data/mock";
+import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import type { RestaurantTable, TableConsumptionItem } from "@/types/domain";
 
 const categories = [
@@ -61,9 +61,10 @@ export function RestaurantConsumptionModal({
   existingItems,
   onSave,
 }: RestaurantConsumptionModalProps) {
+  const { menuItems } = useRestaurantFlow();
   const activeMenuItems = React.useMemo(
     () => menuItems.filter((item) => item.active),
-    []
+    [menuItems]
   );
   const availableCategories = React.useMemo(
     () =>
@@ -74,19 +75,21 @@ export function RestaurantConsumptionModal({
   );
 
   const initialCategory =
-    existingItems[0]?.category ?? availableCategories[0] ?? categories[0];
-  const initialProducts = activeMenuItems.filter(
-    (item) => item.category === initialCategory
-  );
-  const initialProduct = initialProducts[0] ?? activeMenuItems[0] ?? null;
+    existingItems[0]?.category && availableCategories.includes(existingItems[0].category)
+      ? existingItems[0].category
+      : availableCategories[0] ?? categories[0];
+  const initialProduct =
+    activeMenuItems.find((item) => item.category === initialCategory) ??
+    activeMenuItems[0] ??
+    null;
 
-  const [draftItems, setDraftItems] = React.useState<TableConsumptionItem[]>(existingItems);
+  const [draftItems, setDraftItems] = React.useState<TableConsumptionItem[]>(() => existingItems);
   const [draftCategory, setDraftCategory] =
-    React.useState<(typeof categories)[number]>(initialCategory);
-  const [draftProductId, setDraftProductId] = React.useState(initialProduct?.id ?? "");
+    React.useState<(typeof categories)[number]>(() => initialCategory);
+  const [draftProductId, setDraftProductId] = React.useState(() => initialProduct?.id ?? "");
   const [draftQuantity, setDraftQuantity] = React.useState("1");
   const [draftUnitPrice, setDraftUnitPrice] = React.useState(
-    initialProduct?.price ? String(initialProduct.price) : ""
+    () => (initialProduct?.price ? String(initialProduct.price) : "")
   );
 
   const productsInCategory = React.useMemo(
