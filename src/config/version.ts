@@ -1,10 +1,13 @@
-export const APP_VERSION = "v 1.7.2";
+export const APP_VERSION = "v 1.7.3";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Auditoria de reportes con normalizacion central de fechas",
+      "Ventas hoy, semana, mes y personalizado usan la misma fuente de calculo",
+      "Semana comercial calculada de lunes a domingo sobre fecha actual",
       "Consumos editables con controles de cantidad y eliminacion directa",
       "Reportes recalculados desde reservas completadas y consumos actuales",
       "Ventas hoy usa la fecha actual del sistema y formato argentino",

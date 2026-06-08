@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import { cn } from "@/lib/utils";
 import {
-  buildReportAnalytics,
+  calculateReports,
   getReportReferenceDate,
   type ReportAnalytics,
   type ReportPeriod,
@@ -538,7 +538,7 @@ export default function ReportsPage() {
 
   const analytics = React.useMemo(
     () =>
-      buildReportAnalytics({
+      calculateReports({
         reservations,
         customers,
         tables,

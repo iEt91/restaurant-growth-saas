@@ -85,20 +85,6 @@ export type ReportAnalytics = {
 
 const CHANNEL_ORDER = ["Web", "WhatsApp", "Teléfono", "Presencial"] as const;
 
-function parseIsoDate(value: string) {
-  const date = new Date(`${value}T00:00:00Z`);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
-}
-
-function formatIsoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
 function formatLocalIsoDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -107,44 +93,129 @@ function formatLocalIsoDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export function formatDisplayDate(value: string) {
-  const parsedDate = parseIsoDate(value);
+function formatUtcDateKey(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
 
-  if (!parsedDate) {
+  return `${year}-${month}-${day}`;
+}
+
+export function normalizeDateKey(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : formatLocalIsoDate(value);
+  }
+
+  const date = value.trim();
+  const isoMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const argentineMatch = date.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+
+  if (argentineMatch) {
+    const [, day, month, year] = argentineMatch;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  return null;
+}
+
+function parseDateKey(value: string | null | undefined) {
+  const dateKey = normalizeDateKey(value);
+
+  if (!dateKey) {
+    return null;
+  }
+
+  const [yearRaw, monthRaw, dayRaw] = dateKey.split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+export function formatDisplayDate(value: string) {
+  const dateKey = normalizeDateKey(value);
+
+  if (!dateKey) {
     return value;
   }
 
-  const day = String(parsedDate.getUTCDate()).padStart(2, "0");
-  const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
-  const year = parsedDate.getUTCFullYear();
+  const [year, month, day] = dateKey.split("-");
 
   return `${day}/${month}/${year}`;
 }
 
-function shiftIsoDate(value: string, offsetDays: number) {
-  const date = parseIsoDate(value);
-
-  if (!date) {
-    return value;
-  }
-
-  date.setUTCDate(date.getUTCDate() + offsetDays);
-  return formatIsoDate(date);
-}
-
 function startOfMonthIso(value: string) {
-  const date = parseIsoDate(value);
+  const date = parseDateKey(value);
 
   if (!date) {
     return value;
   }
 
   date.setUTCDate(1);
-  return formatIsoDate(date);
+  return formatUtcDateKey(date);
+}
+
+function endOfMonthIso(value: string) {
+  const date = parseDateKey(value);
+
+  if (!date) {
+    return value;
+  }
+
+  date.setUTCMonth(date.getUTCMonth() + 1, 0);
+  return formatUtcDateKey(date);
+}
+
+function startOfWeekIso(value: string) {
+  const date = parseDateKey(value);
+
+  if (!date) {
+    return value;
+  }
+
+  const dayOfWeek = date.getUTCDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  date.setUTCDate(date.getUTCDate() + mondayOffset);
+
+  return formatUtcDateKey(date);
+}
+
+function endOfWeekIso(value: string) {
+  const date = parseDateKey(startOfWeekIso(value));
+
+  if (!date) {
+    return value;
+  }
+
+  date.setUTCDate(date.getUTCDate() + 6);
+  return formatUtcDateKey(date);
 }
 
 function isWithinRange(date: string, range: ReportDateRange) {
-  return date >= range.from && date <= range.to;
+  const dateKey = normalizeDateKey(date);
+  const fromKey = normalizeDateKey(range.from);
+  const toKey = normalizeDateKey(range.to);
+
+  if (!dateKey || !fromKey || !toKey) {
+    return false;
+  }
+
+  return dateKey >= fromKey && dateKey <= toKey;
 }
 
 function getReservationSubtotal(reservation: RestaurantReservation) {
@@ -155,7 +226,13 @@ function getReservationSubtotal(reservation: RestaurantReservation) {
 }
 
 function getLatestReservationDate(reservations: RestaurantReservation[]) {
-  const sortedDates = [...new Set(reservations.map((reservation) => reservation.date))].sort();
+  const sortedDates = [
+    ...new Set(
+      reservations
+        .map((reservation) => normalizeDateKey(reservation.date))
+        .filter((dateKey): dateKey is string => Boolean(dateKey))
+    ),
+  ].sort();
   return sortedDates.at(-1) ?? formatLocalIsoDate(new Date());
 }
 
@@ -165,12 +242,14 @@ export function getReportReferenceDate(reservations: RestaurantReservation[]) {
 
 function buildPeriodRange(
   period: ReportPeriod,
-  referenceDate: string,
+  reportDate: string,
   customRange: ReportDateRange
 ) {
+  const normalizedReportDate = normalizeDateKey(reportDate) ?? formatLocalIsoDate(new Date());
+
   if (period === "Personalizado") {
-    const from = customRange.from || referenceDate;
-    const to = customRange.to || referenceDate;
+    const from = normalizeDateKey(customRange.from) ?? normalizedReportDate;
+    const to = normalizeDateKey(customRange.to) ?? normalizedReportDate;
 
     return from <= to
       ? { from, to }
@@ -182,21 +261,21 @@ function buildPeriodRange(
 
   if (period === "Semana") {
     return {
-      from: shiftIsoDate(referenceDate, -6),
-      to: referenceDate,
+      from: startOfWeekIso(normalizedReportDate),
+      to: endOfWeekIso(normalizedReportDate),
     };
   }
 
   if (period === "Mes") {
     return {
-      from: startOfMonthIso(referenceDate),
-      to: referenceDate,
+      from: startOfMonthIso(normalizedReportDate),
+      to: endOfMonthIso(normalizedReportDate),
     };
   }
 
   return {
-    from: referenceDate,
-    to: referenceDate,
+    from: normalizedReportDate,
+    to: normalizedReportDate,
   };
 }
 
@@ -209,8 +288,8 @@ function buildDailyRows(
   reservations: RestaurantReservation[]
 ): ReportDailyRow[] {
   const rows: ReportDailyRow[] = [];
-  const startDate = parseIsoDate(range.from);
-  const endDate = parseIsoDate(range.to);
+  const startDate = parseDateKey(range.from);
+  const endDate = parseDateKey(range.to);
 
   if (!startDate || !endDate) {
     return rows;
@@ -219,8 +298,10 @@ function buildDailyRows(
   const cursor = new Date(startDate);
 
   while (cursor <= endDate) {
-    const date = formatIsoDate(cursor);
-    const dailyReservations = reservations.filter((reservation) => reservation.date === date);
+    const date = formatUtcDateKey(cursor);
+    const dailyReservations = reservations.filter(
+      (reservation) => normalizeDateKey(reservation.date) === date
+    );
     const sales = dailyReservations
       .filter((reservation) => reservation.status === "Completada")
       .reduce((sum, reservation) => sum + getReservationSubtotal(reservation), 0);
@@ -391,23 +472,22 @@ function buildCustomerMetrics(
 
 function buildSalesComparison(
   reservations: RestaurantReservation[],
-  referenceDate: string,
-  todayDate: string | null
+  todayKey: string
 ) {
   const completedReservations = getCompletedReservations(reservations);
   const salesOnDate = (date: string) =>
     completedReservations
-      .filter((reservation) => reservation.date === date)
+      .filter((reservation) => normalizeDateKey(reservation.date) === date)
       .reduce((sum, reservation) => sum + getReservationSubtotal(reservation), 0);
 
-  const today = todayDate ? salesOnDate(todayDate) : 0;
-  const weekRange = buildPeriodRange("Semana", referenceDate, {
-    from: referenceDate,
-    to: referenceDate,
+  const today = salesOnDate(todayKey);
+  const weekRange = buildPeriodRange("Semana", todayKey, {
+    from: todayKey,
+    to: todayKey,
   });
-  const monthRange = buildPeriodRange("Mes", referenceDate, {
-    from: referenceDate,
-    to: referenceDate,
+  const monthRange = buildPeriodRange("Mes", todayKey, {
+    from: todayKey,
+    to: todayKey,
   });
 
   const week = completedReservations
@@ -421,7 +501,7 @@ function buildSalesComparison(
   return { today, week, month };
 }
 
-export function buildReportAnalytics({
+export function calculateReports({
   reservations,
   customers,
   tables,
@@ -439,7 +519,9 @@ export function buildReportAnalytics({
   customRange: ReportDateRange;
 }): ReportAnalytics {
   const referenceDate = getLatestReservationDate(reservations);
-  const periodRange = buildPeriodRange(period, referenceDate, customRange);
+  const todayKey = normalizeDateKey(todayDate) ?? referenceDate;
+  // Todas las metricas pasan por date keys yyyy-mm-dd para evitar mezclar dd/mm/yyyy con ISO.
+  const periodRange = buildPeriodRange(period, todayKey, customRange);
   const periodReservations = reservations.filter((reservation) =>
     isWithinRange(reservation.date, periodRange)
   );
@@ -470,14 +552,14 @@ export function buildReportAnalytics({
 
   return {
     referenceDate,
-    todayDate,
-    todayLabel: todayDate ? formatDisplayDate(todayDate) : null,
+    todayDate: todayKey,
+    todayLabel: formatDisplayDate(todayKey),
     periodRange,
     selectedLabel:
       period === "Personalizado"
         ? `${formatDisplayDate(periodRange.from)} al ${formatDisplayDate(periodRange.to)}`
         : period,
-    comparisonSales: buildSalesComparison(reservations, referenceDate, todayDate),
+    comparisonSales: buildSalesComparison(reservations, todayKey),
     salesTotal,
     reservationCounts: {
       total: periodReservations.length,
@@ -501,4 +583,8 @@ export function buildReportAnalytics({
     salesByDay,
     reservationsByDay,
   };
+}
+
+export function buildReportAnalytics(args: Parameters<typeof calculateReports>[0]) {
+  return calculateReports(args);
 }
