@@ -1,10 +1,13 @@
-export const APP_VERSION = "v 1.7.1";
+export const APP_VERSION = "v 1.7.2";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Consumos editables con controles de cantidad y eliminacion directa",
+      "Reportes recalculados desde reservas completadas y consumos actuales",
+      "Ventas hoy usa la fecha actual del sistema y formato argentino",
       "Sincronizacion defensiva entre reservas y mesas al cargar el plano",
       "Mesas ocupadas o reservadas sin reserva activa vuelven a Libre",
       "Plano de mesas usa solo reservas activas para cliente y consumo",

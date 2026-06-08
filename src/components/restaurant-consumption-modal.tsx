@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,6 +112,32 @@ export function RestaurantConsumptionModal({
 
   const hasEditableContext =
     open && Boolean(reservationId) && tableStatus === "Ocupada" && Boolean(selectedProduct);
+
+  function updateDraftItemQuantity(itemId: string, delta: 1 | -1) {
+    setDraftItems((current) =>
+      current.map((item) => {
+        if (item.id !== itemId) {
+          return item;
+        }
+
+        if (delta < 0 && item.quantity <= 1) {
+          return item;
+        }
+
+        const nextQuantity = item.quantity + delta;
+
+        return {
+          ...item,
+          quantity: nextQuantity,
+          lineTotal: nextQuantity * item.unitPrice,
+        };
+      })
+    );
+  }
+
+  function removeDraftItem(itemId: string) {
+    setDraftItems((current) => current.filter((item) => item.id !== itemId));
+  }
 
   function handleAddItem() {
     if (!reservationId || !selectedProduct) {
@@ -359,19 +385,50 @@ export function RestaurantConsumptionModal({
                                   : "Precio unitario opcional"}
                               </p>
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 rounded-full"
-                              onClick={() =>
-                                setDraftItems((current) =>
-                                  current.filter((currentItem) => currentItem.id !== item.id)
-                                )
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                                  onClick={() => updateDraftItemQuantity(item.id, -1)}
+                                  disabled={item.quantity <= 1}
+                                  aria-label={`Disminuir ${item.productName}`}
+                                  title={
+                                    item.quantity <= 1
+                                      ? "La cantidad mínima es 1."
+                                      : undefined
+                                  }
+                                >
+                                  <Minus className="h-4 w-4" />
+                                </Button>
+                                <span className="min-w-8 px-2 text-center text-sm font-semibold text-slate-950">
+                                  {item.quantity}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                                  onClick={() => updateDraftItemQuantity(item.id, 1)}
+                                  aria-label={`Aumentar ${item.productName}`}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 rounded-full"
+                                onClick={() => removeDraftItem(item.id)}
+                                aria-label={`Eliminar ${item.productName}`}
+                                title="Eliminar item"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                           <p className="mt-3 text-right text-sm font-semibold text-slate-950">
                             {formatMoney(item.lineTotal)}

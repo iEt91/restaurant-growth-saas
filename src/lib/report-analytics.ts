@@ -99,6 +99,14 @@ function formatIsoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatLocalIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 export function formatDisplayDate(value: string) {
   const parsedDate = parseIsoDate(value);
 
@@ -148,7 +156,7 @@ function getReservationSubtotal(reservation: RestaurantReservation) {
 
 function getLatestReservationDate(reservations: RestaurantReservation[]) {
   const sortedDates = [...new Set(reservations.map((reservation) => reservation.date))].sort();
-  return sortedDates.at(-1) ?? "2026-06-14";
+  return sortedDates.at(-1) ?? formatLocalIsoDate(new Date());
 }
 
 export function getReportReferenceDate(reservations: RestaurantReservation[]) {
@@ -230,6 +238,10 @@ function buildDailyRows(
   return rows;
 }
 
+function getCompletedReservations(reservations: RestaurantReservation[]) {
+  return reservations.filter((reservation) => reservation.status === "Completada");
+}
+
 function buildProductRows(
   reservations: RestaurantReservation[],
   menuItems: MenuItem[]
@@ -237,11 +249,7 @@ function buildProductRows(
   const menuItemById = new Map(menuItems.map((item) => [item.id, item] as const));
   const rows = new Map<string, ReportProductRow>();
 
-  for (const reservation of reservations) {
-    if (reservation.status !== "Completada") {
-      continue;
-    }
-
+  for (const reservation of getCompletedReservations(reservations)) {
     for (const item of reservation.consumptionItems ?? []) {
       const catalogItem = menuItemById.get(item.productId);
       const existing = rows.get(item.productId);
@@ -358,9 +366,7 @@ function buildCustomerMetrics(
     return (entry.customer.visits ?? 0) > 1;
   }).length;
 
-  const completedReservations = periodReservations.filter(
-    (reservation) => reservation.status === "Completada"
-  );
+  const completedReservations = getCompletedReservations(periodReservations);
   const totalRevenue = completedReservations.reduce(
     (sum, reservation) => sum + getReservationSubtotal(reservation),
     0
@@ -388,9 +394,10 @@ function buildSalesComparison(
   referenceDate: string,
   todayDate: string | null
 ) {
+  const completedReservations = getCompletedReservations(reservations);
   const salesOnDate = (date: string) =>
-    reservations
-      .filter((reservation) => reservation.date === date && reservation.status === "Completada")
+    completedReservations
+      .filter((reservation) => reservation.date === date)
       .reduce((sum, reservation) => sum + getReservationSubtotal(reservation), 0);
 
   const today = todayDate ? salesOnDate(todayDate) : 0;
@@ -403,14 +410,12 @@ function buildSalesComparison(
     to: referenceDate,
   });
 
-  const week = reservations
+  const week = completedReservations
     .filter((reservation) => isWithinRange(reservation.date, weekRange))
-    .filter((reservation) => reservation.status === "Completada")
     .reduce((sum, reservation) => sum + getReservationSubtotal(reservation), 0);
 
-  const month = reservations
+  const month = completedReservations
     .filter((reservation) => isWithinRange(reservation.date, monthRange))
-    .filter((reservation) => reservation.status === "Completada")
     .reduce((sum, reservation) => sum + getReservationSubtotal(reservation), 0);
 
   return { today, week, month };
@@ -438,11 +443,9 @@ export function buildReportAnalytics({
   const periodReservations = reservations.filter((reservation) =>
     isWithinRange(reservation.date, periodRange)
   );
+  const completedPeriodReservations = getCompletedReservations(periodReservations);
 
-  const completedReservations = periodReservations.filter(
-    (reservation) => reservation.status === "Completada"
-  );
-  const salesTotal = completedReservations.reduce(
+  const salesTotal = completedPeriodReservations.reduce(
     (sum, reservation) => sum + getReservationSubtotal(reservation),
     0
   );
@@ -478,7 +481,7 @@ export function buildReportAnalytics({
     salesTotal,
     reservationCounts: {
       total: periodReservations.length,
-      completed: periodReservations.filter((reservation) => reservation.status === "Completada").length,
+      completed: completedPeriodReservations.length,
       cancelled: periodReservations.filter((reservation) => reservation.status === "Cancelada").length,
       noShow: periodReservations.filter((reservation) => reservation.status === "No-show").length,
     },

@@ -62,6 +62,57 @@ function getLocalIsoDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function subscribeToCurrentDate(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const immediateTimeoutId = window.setTimeout(onStoreChange, 0);
+  let midnightTimeoutId = 0;
+
+  const refreshOnFocus = () => {
+    onStoreChange();
+  };
+
+  const refreshOnVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      refreshOnFocus();
+    }
+  };
+
+  const scheduleMidnightRefresh = () => {
+    const now = new Date();
+    const nextMidnight = new Date(now);
+    nextMidnight.setHours(24, 0, 0, 0);
+    const delay = Math.max(nextMidnight.getTime() - now.getTime(), 1000);
+
+    window.clearTimeout(midnightTimeoutId);
+    midnightTimeoutId = window.setTimeout(() => {
+      onStoreChange();
+      scheduleMidnightRefresh();
+    }, delay);
+  };
+
+  scheduleMidnightRefresh();
+  window.addEventListener("focus", refreshOnFocus);
+  document.addEventListener("visibilitychange", refreshOnVisibilityChange);
+
+  return () => {
+    window.clearTimeout(immediateTimeoutId);
+    window.clearTimeout(midnightTimeoutId);
+    window.removeEventListener("focus", refreshOnFocus);
+    document.removeEventListener("visibilitychange", refreshOnVisibilityChange);
+  };
+}
+
+function useCurrentLocalIsoDate() {
+  return React.useSyncExternalStore(
+    subscribeToCurrentDate,
+    () => getLocalIsoDate(new Date()),
+    () => null
+  );
+}
+
 function csvEscape(value: string) {
   if (/[;\n"]/g.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
@@ -478,7 +529,7 @@ export default function ReportsPage() {
     () => getReportReferenceDate(reservations),
     [reservations]
   );
-  const [todayDate] = React.useState(() => getLocalIsoDate(new Date()));
+  const todayDate = useCurrentLocalIsoDate();
   const [period, setPeriod] = React.useState<ReportPeriod>("Mes");
   const [customRange, setCustomRange] = React.useState({
     from: referenceDate,
