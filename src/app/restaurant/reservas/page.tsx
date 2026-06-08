@@ -206,8 +206,10 @@ const reservationFlowActions: Record<
 export default function ReservationsPage() {
   const {
     reservations,
+    tables,
     saveReservation,
     updateReservationStatus: syncReservationStatus,
+    getReservationTableOptions,
     focusedReservationId,
     clearFocusedReservation,
   } = useRestaurantFlow();
@@ -314,6 +316,47 @@ export default function ReservationsPage() {
     return syncReservationStatus(reservationId, nextStatus);
   }
 
+  function surfaceMutationResult(
+    result: { warning: string | null; error: string | null },
+    reservationId: string
+  ) {
+    if (result.error) {
+      setFeedbackMessage(result.error);
+      setDialog((current) =>
+        current.reservationId === reservationId
+          ? {
+              ...current,
+              error: result.error,
+              notice: null,
+            }
+          : current
+      );
+      return;
+    }
+
+    if (result.warning) {
+      setFeedbackMessage(result.warning);
+      setDialog((current) =>
+        current.reservationId === reservationId
+          ? {
+              ...current,
+              notice: result.warning,
+              error: null,
+            }
+          : current
+      );
+    }
+  }
+
+  function applyReservationStatusChange(
+    reservationId: string,
+    nextStatus: ReservationActionStatus
+  ) {
+    const result = updateReservationStatus(reservationId, nextStatus);
+    surfaceMutationResult(result, reservationId);
+    return result;
+  }
+
   const getReservationById = React.useCallback(
     (reservationId: string | null) => {
       if (!reservationId) return null;
@@ -323,6 +366,45 @@ export default function ReservationsPage() {
   );
 
   const activeReservation = getReservationById(dialog.reservationId);
+  const tableOptions = React.useMemo(() => {
+    if (!dialog.open) {
+      return [];
+    }
+
+    if (
+      !dialog.form.date ||
+      !dialog.form.time ||
+      !dialog.form.partySize ||
+      Number(dialog.form.partySize) <= 0
+    ) {
+      return tables.map((table) => ({
+        id: table.id,
+        name: table.name,
+        capacity: table.capacity,
+        status: table.status,
+        available: false,
+        reason: "Completá fecha, hora y personas",
+        label: `${table.name} — ${table.capacity}p — Completá fecha, hora y personas`,
+      }));
+    }
+
+    return getReservationTableOptions({
+      id: dialog.reservationId ?? "draft",
+      date: dialog.form.date,
+      time: dialog.form.time,
+      partySize: Number(dialog.form.partySize),
+      tableName: dialog.form.tableName,
+    });
+  }, [
+    dialog.form.date,
+    dialog.form.partySize,
+    dialog.form.tableName,
+    dialog.form.time,
+    dialog.open,
+    dialog.reservationId,
+    getReservationTableOptions,
+    tables,
+  ]);
 
   React.useEffect(() => {
     if (!feedbackMessage) {
@@ -393,7 +475,21 @@ export default function ReservationsPage() {
     };
 
     const result = saveReservation(nextReservation);
+    if (result.error) {
+      setDialog((current) => ({
+        ...current,
+        error: result.error,
+        notice: null,
+      }));
+      return;
+    }
+
     setFeedbackMessage(result.warning);
+    setDialog((current) => ({
+      ...current,
+      notice: result.warning,
+      error: null,
+    }));
     // Futuro: registrar estas correcciones administrativas en audit_logs.
 
     closeDialog();
@@ -441,13 +537,10 @@ export default function ReservationsPage() {
                 : "h-9 rounded-xl px-3"
             }
             onClick={() => {
-              const result = updateReservationStatus(reservationId, action.nextStatus);
+              const result = applyReservationStatusChange(reservationId, action.nextStatus);
 
-              if (result.warning) {
-                setDialog((current) => ({
-                  ...current,
-                  notice: result.warning,
-                }));
+              if (result.error || !result.reservation) {
+                return;
               }
 
               setDialog((current) => ({
@@ -458,6 +551,7 @@ export default function ReservationsPage() {
                   tableName: result.reservation?.tableName ?? current.form.tableName,
                 },
                 notice: result.warning ?? null,
+                error: null,
               }));
             }}
           >
@@ -583,7 +677,7 @@ export default function ReservationsPage() {
                               size="sm"
                               className="h-9 rounded-xl bg-emerald-600 px-3 text-white hover:bg-emerald-700"
                               onClick={() =>
-                                updateReservationStatus(reservation.id, "Confirmada")
+                                applyReservationStatusChange(reservation.id, "Confirmada")
                               }
                             >
                               <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -594,7 +688,7 @@ export default function ReservationsPage() {
                               variant="outline"
                               className="h-9 rounded-xl border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
                               onClick={() =>
-                                updateReservationStatus(reservation.id, "Cancelada")
+                                applyReservationStatusChange(reservation.id, "Cancelada")
                               }
                             >
                               <CircleSlash2 className="mr-2 h-4 w-4" />
@@ -609,7 +703,7 @@ export default function ReservationsPage() {
                               size="sm"
                               className="h-9 rounded-xl bg-violet-600 px-3 text-white hover:bg-violet-700"
                               onClick={() =>
-                                updateReservationStatus(reservation.id, "Ocupada")
+                                applyReservationStatusChange(reservation.id, "Ocupada")
                               }
                             >
                               <SquareDashedMousePointer className="mr-2 h-4 w-4" />
@@ -620,7 +714,7 @@ export default function ReservationsPage() {
                               variant="outline"
                               className="h-9 rounded-xl border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
                               onClick={() =>
-                                updateReservationStatus(reservation.id, "Cancelada")
+                                applyReservationStatusChange(reservation.id, "Cancelada")
                               }
                             >
                               <CircleSlash2 className="mr-2 h-4 w-4" />
@@ -631,7 +725,7 @@ export default function ReservationsPage() {
                               variant="outline"
                               className="h-9 rounded-xl border-slate-200 bg-slate-50 px-3 text-slate-700 hover:bg-slate-100 hover:text-slate-950"
                               onClick={() =>
-                                updateReservationStatus(reservation.id, "No-show")
+                                applyReservationStatusChange(reservation.id, "No-show")
                               }
                             >
                               <TimerReset className="mr-2 h-4 w-4" />
@@ -645,7 +739,7 @@ export default function ReservationsPage() {
                             size="sm"
                             className="h-9 rounded-xl bg-emerald-700 px-3 text-white hover:bg-emerald-800"
                             onClick={() =>
-                              updateReservationStatus(reservation.id, "Completada")
+                              applyReservationStatusChange(reservation.id, "Completada")
                             }
                           >
                             <SquareCheckBig className="mr-2 h-4 w-4" />
@@ -989,14 +1083,28 @@ export default function ReservationsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="table-name">Mesa</Label>
-                    <Input
+                    <NativeSelect
                       id="table-name"
                       value={dialog.form.tableName}
                       onChange={(event) =>
                         updateFormField("tableName", event.target.value)
                       }
-                      placeholder="Mesa 12"
-                    />
+                      className="h-10 focus:border-slate-400"
+                    >
+                      <option value="">Sin mesa asignada</option>
+                      {tableOptions.map((option) => (
+                        <option
+                          key={option.id}
+                          value={option.name}
+                          disabled={!option.available && option.name !== dialog.form.tableName}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                    <p className="text-xs text-slate-500">
+                      Las mesas no disponibles quedan deshabilitadas para evitar conflictos.
+                    </p>
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="birthday">Cumpleaños</Label>

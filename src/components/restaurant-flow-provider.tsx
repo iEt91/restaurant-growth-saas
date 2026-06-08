@@ -22,6 +22,22 @@ type TableOverrideStatus = RestaurantTable["status"];
 type ReservationMutationResult = {
   reservation: RestaurantReservation | null;
   warning: string | null;
+  error: string | null;
+};
+
+type ReservationDraft = Pick<
+  RestaurantReservation,
+  "id" | "date" | "time" | "partySize" | "tableName"
+>;
+
+type ReservationTableOption = {
+  id: string;
+  name: string;
+  capacity: number;
+  status: TableOverrideStatus;
+  available: boolean;
+  label: string;
+  reason: string | null;
 };
 
 type RestaurantFlowContextValue = {
@@ -46,6 +62,9 @@ type RestaurantFlowContextValue = {
   getReservationById: (reservationId: string | null) => RestaurantReservation | null;
   getReservationForTable: (tableName: string) => RestaurantReservation | null;
   getActiveReservationForTable: (tableName: string) => RestaurantReservation | null;
+  getReservationTableOptions: (
+    reservation: ReservationDraft
+  ) => ReservationTableOption[];
   getConsumptionItemsForReservation: (
     reservationId: string | null
   ) => TableConsumptionItem[];
@@ -96,6 +115,192 @@ function buildCustomerName(firstName: string, lastName: string) {
   return `${firstName} ${lastName}`.trim();
 }
 
+function parseReservationWindow(
+  reservation: Pick<RestaurantReservation, "date" | "time">,
+  durationMinutes: number
+) {
+  const start = parseTimeToMinutes(reservation.time);
+
+  if (start === null) {
+    return null;
+  }
+
+  return {
+    date: reservation.date,
+    start,
+    end: start + durationMinutes,
+  };
+}
+
+function sortTablesByCapacity(tables: RestaurantTable[]) {
+  return [...tables].sort(
+    (left, right) => left.capacity - right.capacity || left.name.localeCompare(right.name)
+  );
+}
+
+function getReservationTableAvailability(
+  table: RestaurantTable,
+  reservation: ReservationDraft,
+  reservations: RestaurantReservation[],
+  durationMinutes: number
+) {
+  if (table.status === "Fuera de servicio") {
+    return {
+      available: false,
+      reason: "Fuera de servicio",
+    };
+  }
+
+  if (table.capacity < reservation.partySize) {
+    return {
+      available: false,
+      reason: "Capacidad insuficiente",
+    };
+  }
+
+  const candidateWindow = parseReservationWindow(reservation, durationMinutes);
+
+  if (!candidateWindow) {
+    return {
+      available: false,
+      reason: "Horario inválido",
+    };
+  }
+
+  const blockingReservations = reservations.filter(
+    (currentReservation) =>
+      currentReservation.id !== reservation.id &&
+      currentReservation.tableName === table.name &&
+      isBlockingReservationStatus(currentReservation.status)
+  );
+  const currentReservationOwnsTable = reservations.some(
+    (currentReservation) =>
+      currentReservation.id === reservation.id &&
+      currentReservation.tableName === table.name &&
+      isBlockingReservationStatus(currentReservation.status)
+  );
+
+  if (table.status !== "Libre" && blockingReservations.length === 0 && !currentReservationOwnsTable) {
+    return {
+      available: false,
+      reason:
+        table.status === "Ocupada"
+          ? "Mesa ocupada"
+          : table.status === "Reservada"
+            ? "Mesa reservada"
+            : "No disponible",
+    };
+  }
+
+  const hasConflict = blockingReservations.some((currentReservation) => {
+    const currentWindow = parseReservationWindow(currentReservation, durationMinutes);
+
+    if (!currentWindow) {
+      return false;
+    }
+
+    return windowsOverlap(candidateWindow, currentWindow);
+  });
+
+  if (hasConflict) {
+    return {
+      available: false,
+      reason: "Conflicto horario",
+    };
+  }
+
+  return {
+    available: true,
+    reason: null,
+  };
+}
+
+function buildTableAvailabilityOptions(
+  reservation: ReservationDraft,
+  reservations: RestaurantReservation[],
+  tables: RestaurantTable[],
+  durationMinutes: number
+) {
+  return sortTablesByCapacity(tables).map((table) => {
+    const availability = getReservationTableAvailability(
+      table,
+      reservation,
+      reservations,
+      durationMinutes
+    );
+
+    return {
+      id: table.id,
+      name: table.name,
+      capacity: table.capacity,
+      status: table.status,
+      available: availability.available,
+      reason: availability.reason,
+      label: `${table.name} — ${table.capacity}p — ${
+        availability.available ? "Disponible" : availability.reason ?? "No disponible"
+      }`,
+    } satisfies ReservationTableOption;
+  });
+}
+
+function resolveReservationTableDecision({
+  reservation,
+  reservations,
+  tables,
+  durationMinutes,
+}: {
+  reservation: ReservationDraft;
+  reservations: RestaurantReservation[];
+  tables: RestaurantTable[];
+  durationMinutes: number;
+}) {
+  const requestedTableName = normalizeTableName(reservation.tableName);
+  const requestedTable = requestedTableName
+    ? tables.find((table) => table.name === requestedTableName) ?? null
+    : null;
+
+  if (requestedTable) {
+    const requestedAvailability = getReservationTableAvailability(
+      requestedTable,
+      reservation,
+      reservations,
+      durationMinutes
+    );
+
+    if (requestedAvailability.available) {
+      return {
+        tableName: requestedTable.name,
+        warning: null,
+        error: null,
+      };
+    }
+
+    return {
+      tableName: "",
+      warning: null,
+      error: "Esa mesa no está disponible para el horario seleccionado.",
+    };
+  }
+
+  const nextAvailableTable = sortTablesByCapacity(tables).find((table) =>
+    getReservationTableAvailability(table, reservation, reservations, durationMinutes).available
+  );
+
+  if (nextAvailableTable) {
+    return {
+      tableName: nextAvailableTable.name,
+      warning: "Mesa asignada automáticamente.",
+      error: null,
+    };
+  }
+
+  return {
+    tableName: "",
+    warning: "No se encontró mesa disponible automáticamente.",
+    error: reservation.tableName.trim() ? null : null,
+  };
+}
+
 function buildReservationDateLabel(date: string) {
   const [year, month, day] = date.split("-");
 
@@ -116,23 +321,6 @@ function parseTimeToMinutes(time: string) {
   }
 
   return hours * 60 + minutes;
-}
-
-function getReservationWindow(
-  reservation: Pick<RestaurantReservation, "date" | "time">,
-  durationMinutes: number
-) {
-  const start = parseTimeToMinutes(reservation.time);
-
-  if (start === null) {
-    return null;
-  }
-
-  return {
-    date: reservation.date,
-    start,
-    end: start + durationMinutes,
-  };
 }
 
 function windowsOverlap(
@@ -158,109 +346,6 @@ function normalizeTableName(tableName: string) {
 
 function isBlockingReservationStatus(status: ReservationStatus) {
   return status === "Confirmada" || status === "Ocupada";
-}
-
-function canAssignTableToReservation(
-  table: RestaurantTable,
-  reservation: Pick<
-    RestaurantReservation,
-    "id" | "date" | "time" | "partySize" | "tableName"
-  >,
-  reservations: RestaurantReservation[],
-  durationMinutes: number
-) {
-  if (table.status === "Fuera de servicio") {
-    return false;
-  }
-
-  if (table.capacity < reservation.partySize) {
-    return false;
-  }
-
-  const candidateWindow = getReservationWindow(reservation, durationMinutes);
-
-  if (!candidateWindow) {
-    return false;
-  }
-
-  const currentReservationBlocks = reservations.some(
-    (currentReservation) =>
-      currentReservation.id === reservation.id &&
-      currentReservation.tableName === table.name &&
-      isBlockingReservationStatus(currentReservation.status)
-  );
-
-  const blockingReservations = reservations.filter(
-    (currentReservation) =>
-      currentReservation.id !== reservation.id &&
-      currentReservation.tableName === table.name &&
-      isBlockingReservationStatus(currentReservation.status)
-  );
-
-  if (table.status !== "Libre" && blockingReservations.length === 0 && !currentReservationBlocks) {
-    return false;
-  }
-
-  return !blockingReservations.some((currentReservation) => {
-    const currentWindow = getReservationWindow(currentReservation, durationMinutes);
-
-    if (!currentWindow) {
-      return false;
-    }
-
-    return windowsOverlap(candidateWindow, currentWindow);
-  });
-}
-
-function resolveReservationTableAssignment({
-  reservation,
-  reservations,
-  tables,
-  durationMinutes,
-}: {
-  reservation: Pick<
-    RestaurantReservation,
-    "id" | "date" | "time" | "partySize" | "tableName"
-  >;
-  reservations: RestaurantReservation[];
-  tables: RestaurantTable[];
-  durationMinutes: number;
-}) {
-  const requestedTableName = normalizeTableName(reservation.tableName);
-  const sortableTables = [...tables].sort(
-    (left, right) => left.capacity - right.capacity || left.name.localeCompare(right.name)
-  );
-
-  const requestedTable = requestedTableName
-    ? tables.find((table) => table.name === requestedTableName) ?? null
-    : null;
-  const requestedTableIsValid =
-    requestedTable !== null &&
-    canAssignTableToReservation(requestedTable, reservation, reservations, durationMinutes);
-
-  if (requestedTableIsValid) {
-    return {
-      tableName: requestedTableName,
-      warning: null,
-    };
-  }
-
-  const nextAvailableTable = sortableTables.find((table) =>
-    canAssignTableToReservation(table, reservation, reservations, durationMinutes)
-  );
-
-  if (nextAvailableTable) {
-    return {
-      tableName: nextAvailableTable.name,
-      warning: null,
-    };
-  }
-
-  return {
-    tableName: "",
-    warning:
-      "No hay mesa disponible automaticamente para ese horario. Podes asignarla manualmente.",
-  };
 }
 
 function buildCustomerFromReservation(
@@ -565,7 +650,7 @@ export function RestaurantFlowProvider({
   const saveReservation = React.useCallback(
     (reservation: RestaurantReservation): ReservationMutationResult => {
       const currentReservation = reservations.find((item) => item.id === reservation.id);
-      const resolvedTable = resolveReservationTableAssignment({
+      const decision = resolveReservationTableDecision({
         reservation: {
           id: reservation.id,
           date: reservation.date,
@@ -577,9 +662,30 @@ export function RestaurantFlowProvider({
         tables,
         durationMinutes: standardReservationDurationMinutes,
       });
+
+      if (decision.error) {
+        return {
+          reservation: null,
+          warning: null,
+          error: decision.error,
+        };
+      }
+
+      if (
+        reservation.status === "Ocupada" &&
+        !normalizeTableName(reservation.tableName) &&
+        !decision.tableName
+      ) {
+        return {
+          reservation: null,
+          warning: null,
+          error: "No se puede marcar como ocupada sin mesa asignada.",
+        };
+      }
+
       const nextReservation: RestaurantReservation = {
         ...reservation,
-        tableName: resolvedTable.tableName,
+        tableName: decision.tableName,
         occupiedMinutesElapsed:
           reservation.status === "Ocupada"
             ? currentReservation?.occupiedMinutesElapsed ?? 0
@@ -603,7 +709,14 @@ export function RestaurantFlowProvider({
 
       return {
         reservation: nextReservation,
-        warning: resolvedTable.warning,
+        warning:
+          decision.warning ??
+          (normalizeTableName(reservation.tableName)
+            ? null
+            : decision.tableName
+              ? "Mesa asignada automáticamente."
+              : "No se encontró mesa disponible automáticamente."),
+        error: null,
       };
     },
     [reservations, standardReservationDurationMinutes, syncCustomerProfileForReservation, tables]
@@ -638,6 +751,7 @@ export function RestaurantFlowProvider({
         return {
           reservation: null,
           warning: "No encontramos la reserva para actualizar.",
+          error: "No encontramos la reserva para actualizar.",
         };
       }
 
@@ -651,7 +765,7 @@ export function RestaurantFlowProvider({
       let warning: string | null = null;
 
       if (isBlockingReservationStatus(nextStatus)) {
-        const resolvedTable = resolveReservationTableAssignment({
+        const decision = resolveReservationTableDecision({
           reservation: {
             id: currentReservation.id,
             date: currentReservation.date,
@@ -664,11 +778,27 @@ export function RestaurantFlowProvider({
           durationMinutes: standardReservationDurationMinutes,
         });
 
+        if (decision.error) {
+          return {
+            reservation: null,
+            warning: null,
+            error: decision.error,
+          };
+        }
+
+        if (nextStatus === "Ocupada" && !decision.tableName) {
+          return {
+            reservation: null,
+            warning: null,
+            error: "No se puede marcar como ocupada sin mesa asignada.",
+          };
+        }
+
         nextReservation = {
           ...nextReservation,
-          tableName: resolvedTable.tableName,
+          tableName: decision.tableName,
         };
-        warning = resolvedTable.warning;
+        warning = decision.warning;
       }
 
       setReservations((current) =>
@@ -680,8 +810,20 @@ export function RestaurantFlowProvider({
       return {
         reservation: nextReservation,
         warning,
+        error: null,
       };
     },
+    [reservations, standardReservationDurationMinutes, tables]
+  );
+
+  const getReservationTableOptions = React.useCallback(
+    (reservation: ReservationDraft) =>
+      buildTableAvailabilityOptions(
+        reservation,
+        reservations,
+        tables,
+        standardReservationDurationMinutes
+      ),
     [reservations, standardReservationDurationMinutes, tables]
   );
 
@@ -895,6 +1037,7 @@ export function RestaurantFlowProvider({
       getReservationById,
       getReservationForTable,
       getActiveReservationForTable,
+      getReservationTableOptions,
       getConsumptionItemsForReservation,
       saveConsumptionItems,
       openReservationDetail,
@@ -909,6 +1052,7 @@ export function RestaurantFlowProvider({
       getReservationById,
       getReservationForTable,
       getConsumptionItemsForReservation,
+      getReservationTableOptions,
       intervalBetweenReservationsMinutes,
       openReservationDetail,
       menuItems,

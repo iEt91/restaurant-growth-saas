@@ -1,10 +1,14 @@
-export const APP_VERSION = "v 1.5.1";
+export const APP_VERSION = "v 1.6.0";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Validacion de disponibilidad y conflictos de reservas",
+      "Selector de mesas con disponibilidad visual y razones",
+      "Errores claros al intentar guardar mesas ocupadas o reservadas",
+      "Alertas suaves en reservas para autoasignacion y conflictos",
       "Asignacion automatica de mesa en reservas nuevas y editadas",
       "Cumpleanos convertido a input de fecha en reservas y CRM",
       "Aviso visual cuando no hay mesa disponible automaticamente",
