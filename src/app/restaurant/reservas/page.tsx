@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
+import type { ReservationChannel as RestaurantReservationChannel } from "@/data/restaurant-ops";
 import {
   CalendarDays,
   CheckCircle2,
@@ -37,11 +38,16 @@ const reservationStatuses = [
   "No-show",
 ] as const;
 
-const channelOptions = ["Web", "WhatsApp", "Teléfono", "Presencial"] as const;
+const channelOptions = [
+  "Web",
+  "WhatsApp",
+  "Teléfono",
+  "Presencial",
+] as const satisfies readonly RestaurantReservationChannel[];
 
 type ReservationStatus = (typeof reservationStatuses)[number];
 type ReservationActionStatus = Exclude<ReservationStatus, "Todas">;
-type ReservationChannel = (typeof channelOptions)[number];
+type ReservationChannel = RestaurantReservationChannel;
 type DialogMode = "create" | "edit" | "view";
 
 type ReservationRow = {
@@ -349,6 +355,7 @@ export default function ReservationsPage() {
     };
 
     saveReservation(nextReservation);
+    // Futuro: registrar estas correcciones administrativas en audit_logs.
 
     closeDialog();
   }
@@ -975,18 +982,17 @@ export default function ReservationsPage() {
                     />
                   </div>
                 </div>
-
                 {dialog.mode === "edit" && dialog.reservationId ? (
                   <Card className="border-slate-200 shadow-sm">
                     <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-sm">Estado y flujo de reserva</CardTitle>
+                      <CardTitle className="text-sm">Corrección de estado</CardTitle>
                       <p className="text-xs text-slate-500">
-                        Ajustá el estado con el selector o usá las acciones rápidas.
+                        Correcciones administrativas para casos de error humano.
                       </p>
                     </CardHeader>
                     <CardContent className="space-y-4 p-4 pt-0">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
+                      <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                             Estado actual
                           </p>
@@ -996,22 +1002,53 @@ export default function ReservationsPage() {
                           >
                             {dialog.form.status}
                           </Badge>
+                          <p className="mt-3 text-sm text-slate-500">
+                            Elegí el estado correcto y guardá los cambios. La mesa asociada se
+                            sincroniza automáticamente.
+                          </p>
                         </div>
-                        <p className="max-w-md text-sm text-slate-500">
-                          Las acciones de flujo actualizan el estado de la reserva de forma
-                          inmediata.
-                        </p>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="correction-status">Selector manual de estado</Label>
+                          <select
+                            id="correction-status"
+                            value={dialog.form.status}
+                            onChange={(event) =>
+                              updateFormField(
+                                "status",
+                                event.target.value as ReservationActionStatus
+                              )
+                            }
+                            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400"
+                          >
+                            {reservationStatuses
+                              .filter(
+                                (status): status is ReservationActionStatus =>
+                                  status !== "Todas"
+                              )
+                              .map((status) => (
+                                <option key={status} value={status}>
+                                  {status}
+                                </option>
+                              ))}
+                          </select>
+                          <p className="text-xs text-slate-500">
+                            Úsalo para corregir errores como ocupada, cancelada o no-show por
+                            equivocación.
+                          </p>
+                        </div>
                       </div>
 
                       <div className="space-y-2">
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                          Acciones disponibles según el estado actual
+                          Flujo disponible según el estado actual
                         </p>
                         {renderFlowActions(dialog.form.status, dialog.reservationId)}
                       </div>
                     </CardContent>
                   </Card>
                 ) : null}
+
                 {dialog.error ? (
                   <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                     {dialog.error}
