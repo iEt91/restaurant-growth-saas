@@ -62,17 +62,19 @@ export default function FloorPlanPage() {
     standardReservationDurationMinutes,
   } = useRestaurantFlow();
   const [selectedTableId, setSelectedTableId] = React.useState<string | null>(null);
+  const [detailTableId, setDetailTableId] = React.useState<string | null>(null);
+  const [isTableDetailOpen, setIsTableDetailOpen] = React.useState(false);
   const [isConsumptionOpen, setIsConsumptionOpen] = React.useState(false);
 
   const selectedTable =
     tables.find((table) => table.id === selectedTableId) ?? null;
-  const activeReservation = selectedTable
+  const selectedTableReservation = selectedTable
     ? getActiveReservationForTable(selectedTable.name)
     : null;
-  const activeReservationId = activeReservation?.id ?? null;
+  const selectedTableReservationId = selectedTableReservation?.id ?? null;
   const activeConsumptionItems = React.useMemo(
-    () => getConsumptionItemsForReservation(activeReservationId),
-    [activeReservationId, getConsumptionItemsForReservation]
+    () => getConsumptionItemsForReservation(selectedTableReservationId),
+    [getConsumptionItemsForReservation, selectedTableReservationId]
   );
   const activeConsumptionTotal = React.useMemo(
     () => activeConsumptionItems.reduce((sum, item) => sum + item.lineTotal, 0),
@@ -91,24 +93,60 @@ export default function FloorPlanPage() {
       return null;
     }
 
-    return getOccupiedMinutesRemaining(activeReservation);
-  }, [activeReservation, getOccupiedMinutesRemaining, selectedTable?.status]);
+    return getOccupiedMinutesRemaining(selectedTableReservation);
+  }, [getOccupiedMinutesRemaining, selectedTable?.status, selectedTableReservation]);
+
+  const detailTable =
+    tables.find((table) => table.id === detailTableId) ?? null;
+  const detailReservation = detailTable
+    ? getActiveReservationForTable(detailTable.name)
+    : null;
+  const detailReservationId = detailReservation?.id ?? null;
+  const detailConsumptionItems = React.useMemo(
+    () => getConsumptionItemsForReservation(detailReservationId),
+    [detailReservationId, getConsumptionItemsForReservation]
+  );
+  const detailConsumptionTotal = React.useMemo(
+    () => detailConsumptionItems.reduce((sum, item) => sum + item.lineTotal, 0),
+    [detailConsumptionItems]
+  );
+  const detailOccupiedMinutesRemaining = React.useMemo(() => {
+    if (detailTable?.status !== "Ocupada") {
+      return null;
+    }
+
+    return getOccupiedMinutesRemaining(detailReservation);
+  }, [detailReservation, detailTable?.status, getOccupiedMinutesRemaining]);
 
   function handleOpenReservation() {
-    if (!activeReservation) {
+    if (!selectedTableReservation) {
       return;
     }
 
-    openReservationDetail(activeReservation.id);
+    openReservationDetail(selectedTableReservation.id);
     router.push("/restaurant/reservas");
   }
 
   function handleOpenConsumption() {
-    if (!selectedTable || selectedTable.status !== "Ocupada" || !activeReservation) {
+    if (
+      !selectedTable ||
+      selectedTable.status !== "Ocupada" ||
+      !selectedTableReservation
+    ) {
       return;
     }
 
     setIsConsumptionOpen(true);
+  }
+
+  function handleSelectTable(tableId: string) {
+    setSelectedTableId(tableId);
+  }
+
+  function handleOpenTableDetail(tableId: string) {
+    setSelectedTableId(tableId);
+    setDetailTableId(tableId);
+    setIsTableDetailOpen(true);
   }
 
   return (
@@ -174,7 +212,9 @@ export default function FloorPlanPage() {
                     <p>
                       Reserva activa:{" "}
                       <span className="text-slate-950">
-                        {activeReservation ? `${activeReservation.firstName} ${activeReservation.lastName}` : "Sin reserva activa"}
+                        {selectedTableReservation
+                          ? `${selectedTableReservation.firstName} ${selectedTableReservation.lastName}`
+                          : "Sin reserva activa"}
                       </span>
                     </p>
                     {selectedTable.status === "Ocupada" ? (
@@ -185,15 +225,15 @@ export default function FloorPlanPage() {
                         </span>
                       </p>
                     ) : null}
-                    {activeReservation ? (
+                    {selectedTableReservation ? (
                       <>
                         <p>
                           Hora:{" "}
-                          <span className="text-slate-950">{activeReservation.time}</span>
+                          <span className="text-slate-950">{selectedTableReservation.time}</span>
                         </p>
                         <p>
                           Personas:{" "}
-                          <span className="text-slate-950">{activeReservation.partySize}</span>
+                          <span className="text-slate-950">{selectedTableReservation.partySize}</span>
                         </p>
                       </>
                     ) : null}
@@ -247,7 +287,8 @@ export default function FloorPlanPage() {
                         <button
                           key={table.id}
                           type="button"
-                          onClick={() => setSelectedTableId(table.id)}
+                          onClick={() => handleSelectTable(table.id)}
+                          onDoubleClick={() => handleOpenTableDetail(table.id)}
                           className={cn(
                             "flex min-h-[120px] flex-col justify-between rounded-[22px] border border-white/20 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:scale-[1.01]",
                             tableStateClasses[table.status]
@@ -289,9 +330,9 @@ export default function FloorPlanPage() {
             variant="outline"
             className="w-full justify-start rounded-2xl"
             onClick={handleOpenReservation}
-            disabled={!activeReservation}
+            disabled={!selectedTableReservation}
             title={
-              !activeReservation ? "No hay una reserva activa para ver." : undefined
+              !selectedTableReservation ? "No hay una reserva activa para ver." : undefined
             }
           >
             Ver reserva
@@ -301,7 +342,7 @@ export default function FloorPlanPage() {
             variant="outline"
             className="w-full justify-start rounded-2xl"
             onClick={handleOpenConsumption}
-            disabled={selectedTable?.status !== "Ocupada" || !activeReservation}
+            disabled={selectedTable?.status !== "Ocupada" || !selectedTableReservation}
             title={
               selectedTable?.status !== "Ocupada"
                 ? "Solo se puede cargar consumo en mesas ocupadas."
@@ -340,40 +381,48 @@ export default function FloorPlanPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={Boolean(selectedTable)} onOpenChange={(open) => !open && setSelectedTableId(null)}>
+      <Dialog
+        open={isTableDetailOpen && Boolean(detailTable)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsTableDetailOpen(false);
+            setDetailTableId(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
-          {selectedTable ? (
+          {detailTable ? (
             <div className="space-y-5">
               <DialogHeader>
                 <Badge variant="secondary" className="w-fit">
-                  {selectedTable.status}
+                  {detailTable.status}
                 </Badge>
                 <DialogTitle className="text-2xl font-semibold text-slate-950">
-                  {selectedTable.name}
+                  {detailTable.name}
                 </DialogTitle>
                 <DialogDescription className="text-sm text-slate-500">
                   Vista operativa de la mesa con detalles del cliente y acciones disponibles.
                 </DialogDescription>
               </DialogHeader>
 
-              {activeReservation ? (
+              {detailReservation ? (
                 <>
                   <div className="grid gap-3 md:grid-cols-2">
                     {[
-                      ["Mesa", selectedTable.name],
-                      ["Estado de mesa", selectedTable.status],
+                      ["Mesa", detailTable.name],
+                      ["Estado de mesa", detailTable.status],
                       [
                         "Cliente asociado",
-                        `${activeReservation.firstName} ${activeReservation.lastName}`,
+                        `${detailReservation.firstName} ${detailReservation.lastName}`,
                       ],
-                      ["Reserva asociada", activeReservation.date],
-                      ["Hora", activeReservation.time],
-                      ["Personas", String(activeReservation.partySize)],
-                      ["Estado de reserva", activeReservation.status],
+                      ["Reserva asociada", detailReservation.date],
+                      ["Hora", detailReservation.time],
+                      ["Personas", String(detailReservation.partySize)],
+                      ["Estado de reserva", detailReservation.status],
                       [
                         "Ticket promedio",
-                        selectedTable.averageTicket
-                          ? `$${selectedTable.averageTicket.toLocaleString("es-AR")}`
+                        detailTable.averageTicket
+                          ? `$${detailTable.averageTicket.toLocaleString("es-AR")}`
                           : "—",
                       ],
                     ].map(([label, value]) => (
@@ -390,16 +439,30 @@ export default function FloorPlanPage() {
                     <div className="rounded-3xl bg-slate-50 p-4">
                       <p className="text-sm font-semibold text-slate-950">Preferencias</p>
                       <p className="mt-2 text-sm text-slate-600">
-                        {activeReservation.preferences || "Sin preferencias registradas"}
+                        {detailReservation.preferences || "Sin preferencias registradas"}
                       </p>
                     </div>
                     <div className="rounded-3xl bg-slate-50 p-4">
                       <p className="text-sm font-semibold text-slate-950">Alergias</p>
                       <p className="mt-2 text-sm text-slate-600">
-                        {activeReservation.allergies || "Sin alergias registradas"}
+                        {detailReservation.allergies || "Sin alergias registradas"}
                       </p>
                     </div>
                   </div>
+
+                  {detailConsumptionItems.length > 0 ? (
+                    <div className="rounded-3xl border border-violet-200 bg-violet-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-violet-600">
+                        Consumo registrado
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-slate-950">
+                        {detailConsumptionItems.length} items cargados
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        Total estimado: {formatMoney(detailConsumptionTotal)}
+                      </p>
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <div className="grid gap-3 md:grid-cols-2">
@@ -407,14 +470,14 @@ export default function FloorPlanPage() {
                     <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
                       Mesa
                     </p>
-                    <p className="mt-2 text-sm font-medium text-slate-950">{selectedTable.name}</p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">{detailTable.name}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 p-4">
                     <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
                       Estado
                     </p>
                     <p className="mt-2 text-sm font-medium text-slate-950">
-                      {selectedTable.status}
+                      {detailTable.status}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 p-4">
@@ -422,7 +485,7 @@ export default function FloorPlanPage() {
                       Capacidad
                     </p>
                     <p className="mt-2 text-sm font-medium text-slate-950">
-                      {selectedTable.capacity} personas
+                      {detailTable.capacity} personas
                     </p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 p-4">
@@ -436,13 +499,13 @@ export default function FloorPlanPage() {
                 </div>
               )}
 
-              {selectedTable.status === "Ocupada" ? (
+              {detailTable.status === "Ocupada" ? (
                 <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4">
                   <p className="text-[11px] uppercase tracking-[0.22em] text-rose-500">
                     Tiempo restante
                   </p>
                   <p className="mt-2 text-lg font-semibold text-rose-600">
-                    {selectedTableOccupiedMinutesRemaining} min restantes
+                    {detailOccupiedMinutesRemaining} min restantes
                   </p>
                 </div>
               ) : null}
@@ -452,7 +515,7 @@ export default function FloorPlanPage() {
                   variant="outline"
                   className="rounded-2xl"
                   onClick={handleOpenReservation}
-                  disabled={!activeReservation}
+                  disabled={!detailReservation}
                 >
                   Ver reserva
                 </Button>
@@ -460,9 +523,9 @@ export default function FloorPlanPage() {
                   variant="outline"
                   className="rounded-2xl"
                   onClick={handleOpenConsumption}
-                  disabled={selectedTable?.status !== "Ocupada" || !activeReservation}
+                  disabled={detailTable.status !== "Ocupada" || !detailReservation}
                   title={
-                    selectedTable?.status !== "Ocupada"
+                    detailTable.status !== "Ocupada"
                       ? "Solo se puede cargar consumo en mesas ocupadas."
                       : undefined
                   }
@@ -473,8 +536,8 @@ export default function FloorPlanPage() {
                   variant="secondary"
                   className="rounded-2xl"
                   onClick={() => {
-                    if (!selectedTable) return;
-                    updateTableStatus(selectedTable.id, "Libre");
+                    if (!detailTable) return;
+                    updateTableStatus(detailTable.id, "Libre");
                   }}
                 >
                   Cambiar a libre
@@ -482,8 +545,8 @@ export default function FloorPlanPage() {
                 <Button
                   className="rounded-2xl"
                   onClick={() => {
-                    if (!selectedTable) return;
-                    updateTableStatus(selectedTable.id, "Ocupada");
+                    if (!detailTable) return;
+                    updateTableStatus(detailTable.id, "Ocupada");
                   }}
                 >
                   Cerrar mesa
@@ -495,14 +558,14 @@ export default function FloorPlanPage() {
       </Dialog>
 
       <RestaurantConsumptionModal
-        key={`${activeReservation?.id ?? "no-reservation"}-${isConsumptionOpen ? "open" : "closed"}`}
+        key={`${selectedTableReservation?.id ?? "no-reservation"}-${isConsumptionOpen ? "open" : "closed"}`}
         open={isConsumptionOpen}
         onOpenChange={setIsConsumptionOpen}
-        reservationId={activeReservation?.id ?? null}
+        reservationId={selectedTableReservation?.id ?? null}
         tableName={selectedTable?.name ?? ""}
         clientName={
-          activeReservation
-            ? `${activeReservation.firstName} ${activeReservation.lastName}`
+          selectedTableReservation
+            ? `${selectedTableReservation.firstName} ${selectedTableReservation.lastName}`
             : ""
         }
         tableStatus={selectedTable?.status ?? "Libre"}
@@ -511,11 +574,11 @@ export default function FloorPlanPage() {
         }
         existingItems={activeConsumptionItems}
         onSave={(items) => {
-          if (!activeReservation) {
+          if (!selectedTableReservation) {
             return;
           }
 
-          saveConsumptionItems(activeReservation.id, items);
+          saveConsumptionItems(selectedTableReservation.id, items);
         }}
       />
     </div>

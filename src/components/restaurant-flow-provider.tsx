@@ -64,6 +64,31 @@ function preserveConsumptionItems(
   return nextReservation.consumptionItems ?? currentReservation?.consumptionItems;
 }
 
+function groupConsumptionItems(items: TableConsumptionItem[]) {
+  const grouped = new Map<string, TableConsumptionItem>();
+
+  for (const item of items) {
+    const existing = grouped.get(item.productId);
+
+    if (!existing) {
+      grouped.set(item.productId, { ...item });
+      continue;
+    }
+
+    const nextQuantity = existing.quantity + item.quantity;
+    const nextLineTotal = existing.lineTotal + item.lineTotal;
+
+    grouped.set(item.productId, {
+      ...existing,
+      quantity: nextQuantity,
+      lineTotal: nextLineTotal,
+      unitPrice: nextQuantity > 0 ? Math.round(nextLineTotal / nextQuantity) : existing.unitPrice,
+    });
+  }
+
+  return Array.from(grouped.values());
+}
+
 export function RestaurantFlowProvider({
   children,
 }: Readonly<{
@@ -208,12 +233,14 @@ export function RestaurantFlowProvider({
 
   const saveConsumptionItems = React.useCallback(
     (reservationId: string, items: TableConsumptionItem[]) => {
+      const groupedItems = groupConsumptionItems(items);
+
       setReservations((current) =>
         current.map((reservation) =>
           reservation.id === reservationId
             ? {
                 ...reservation,
-                consumptionItems: items,
+                consumptionItems: groupedItems,
               }
             : reservation
         )

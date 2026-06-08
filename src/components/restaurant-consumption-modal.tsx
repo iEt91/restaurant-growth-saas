@@ -118,20 +118,44 @@ export function RestaurantConsumptionModal({
     const unitPrice = Number(draftUnitPrice || selectedProduct.price || 0);
     const lineTotal = quantity * unitPrice;
 
-    setDraftItems((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        reservationId,
-        tableName,
-        category: draftCategory,
-        productId: selectedProduct.id,
-        productName: selectedProduct.name,
-        quantity,
-        unitPrice,
-        lineTotal,
-      },
-    ]);
+    setDraftItems((current) => {
+      const existingIndex = current.findIndex(
+        (item) => item.productId === selectedProduct.id
+      );
+
+      if (existingIndex >= 0) {
+        return current.map((item, index) => {
+          if (index !== existingIndex) {
+            return item;
+          }
+
+          const nextQuantity = item.quantity + quantity;
+          const nextLineTotal = item.lineTotal + lineTotal;
+
+          return {
+            ...item,
+            quantity: nextQuantity,
+            unitPrice: nextQuantity > 0 ? Math.round(nextLineTotal / nextQuantity) : unitPrice,
+            lineTotal: nextLineTotal,
+          };
+        });
+      }
+
+      return [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          reservationId,
+          tableName,
+          category: draftCategory,
+          productId: selectedProduct.id,
+          productName: selectedProduct.name,
+          quantity,
+          unitPrice,
+          lineTotal,
+        },
+      ];
+    });
 
     setDraftQuantity("1");
   }
