@@ -480,13 +480,13 @@ export default function ReservationsPage() {
             <table className="min-w-full table-fixed divide-y divide-slate-100">
               <colgroup>
                 <col className="w-[110px]" />
-                <col className="w-[250px]" />
+                <col className="w-[180px]" />
                 <col className="w-[110px]" />
-                <col className="w-[130px]" />
-                <col className="w-[120px]" />
-                <col className="w-[120px]" />
-                <col className="w-[360px]" />
-                <col className="w-[200px]" />
+                <col className="w-[150px]" />
+                <col className="w-[110px]" />
+                <col className="w-[110px]" />
+                <col className="w-[420px]" />
+                <col className="w-[180px]" />
               </colgroup>
               <thead className="bg-slate-50">
                 <tr className="text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -521,7 +521,7 @@ export default function ReservationsPage() {
                     <td className="px-4 py-3 text-center">
                       <Badge
                         variant="outline"
-                        className={statusStyles[reservation.status]}
+                        className={`${statusStyles[reservation.status]} whitespace-nowrap`}
                       >
                         {reservation.status}
                       </Badge>
