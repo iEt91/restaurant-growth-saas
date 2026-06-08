@@ -54,6 +54,10 @@ function formatMoney(value?: number) {
   return value ? moneyFormatter.format(value) : "Opcional";
 }
 
+function normalizePriceInput(value: string) {
+  return value.replace(/[^\d]/g, "");
+}
+
 function getFormFromItem(item: MenuItem): MenuFormState {
   return {
     id: item.id,
@@ -136,13 +140,14 @@ export default function MenuPage() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedPrice = normalizePriceInput(form.price);
 
     const nextItem: MenuItem = {
       id: form.id ?? crypto.randomUUID(),
       name: form.name.trim(),
       description: form.description.trim(),
       category: form.category,
-      price: form.price.trim() ? Number(form.price) : undefined,
+      price: normalizedPrice ? Number(normalizedPrice) : undefined,
       image: form.image.trim(),
       active: form.active,
     };
@@ -155,18 +160,20 @@ export default function MenuPage() {
     <div className="grid gap-5 xl:grid-cols-[240px_minmax(0,1fr)]">
       <Card className="h-fit">
         <CardHeader className="border-b border-slate-100 pb-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <CardTitle>Menu</CardTitle>
-              <p className="text-sm text-slate-500">Categorias y productos activos.</p>
-            </div>
-            <Button className="rounded-2xl" onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo producto
-            </Button>
+          <div>
+            <CardTitle>Menu</CardTitle>
+            <p className="text-sm text-slate-500">Categorias y productos activos.</p>
           </div>
         </CardHeader>
         <CardContent className="space-y-2 p-3">
+          <Button
+            className="w-full rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700"
+            onClick={openCreateDialog}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo producto
+          </Button>
+
           {visibleCategories.map((category) => {
             const active = selectedCategory === category.label;
             return (
@@ -338,11 +345,13 @@ export default function MenuPage() {
                 <div className="space-y-2">
                   <Label>Precio</Label>
                   <Input
-                    type="number"
-                    min={0}
-                    step={100}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={form.price}
-                    onChange={(event) => updateField("price", event.target.value)}
+                    onChange={(event) =>
+                      updateField("price", normalizePriceInput(event.target.value))
+                    }
                     placeholder="Opcional"
                   />
                 </div>
