@@ -66,8 +66,7 @@ export default function FloorPlanPage() {
   const [isTableDetailOpen, setIsTableDetailOpen] = React.useState(false);
   const [isConsumptionOpen, setIsConsumptionOpen] = React.useState(false);
 
-  const selectedTable =
-    tables.find((table) => table.id === selectedTableId) ?? null;
+  const selectedTable = tables.find((table) => table.id === selectedTableId) ?? null;
   const selectedTableReservation = selectedTable
     ? getActiveReservationForTable(selectedTable.name)
     : null;
@@ -96,11 +95,8 @@ export default function FloorPlanPage() {
     return getOccupiedMinutesRemaining(selectedTableReservation);
   }, [getOccupiedMinutesRemaining, selectedTable?.status, selectedTableReservation]);
 
-  const detailTable =
-    tables.find((table) => table.id === detailTableId) ?? null;
-  const detailReservation = detailTable
-    ? getActiveReservationForTable(detailTable.name)
-    : null;
+  const detailTable = tables.find((table) => table.id === detailTableId) ?? null;
+  const detailReservation = detailTable ? getActiveReservationForTable(detailTable.name) : null;
   const detailReservationId = detailReservation?.id ?? null;
   const detailConsumptionItems = React.useMemo(
     () => getConsumptionItemsForReservation(detailReservationId),
@@ -150,182 +146,15 @@ export default function FloorPlanPage() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[1.15fr_0.55fr]">
-      <Card>
-        <CardHeader className="flex flex-col gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <CardTitle>Plano de mesas</CardTitle>
-            <p className="text-sm text-slate-500">
-              Plano operativo dentro de una card, con estado por color.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" className="rounded-2xl">
-              Editar Mapa
-            </Button>
-            <Button variant="outline" className="rounded-2xl">
-              Unir Mesas
-            </Button>
-            <Button className="rounded-2xl">+ Nueva Mesa</Button>
-          </div>
-        </CardHeader>
-
-        <CardContent className="pt-4">
-          <div className="grid gap-5 xl:grid-cols-[180px_1fr]">
-            <div className="space-y-4">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-950">Estados</p>
-                <div className="mt-4 space-y-3">
-                  {legend.map(([label, color]) => (
-                    <div
-                      key={label}
-                      className="flex items-center gap-3 text-sm text-slate-600"
-                    >
-                      <span className={cn("h-3 w-3 rounded-full", color)} />
-                      {label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-950">Información</p>
-
-                {selectedTable ? (
-                  <div className="mt-3 space-y-3 text-sm text-slate-600">
-                    <div className="space-y-1">
-                      <p className="font-medium text-slate-950">{selectedTable.name}</p>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "w-fit whitespace-nowrap",
-                          tableStateClasses[selectedTable.status]
-                        )}
-                      >
-                        {selectedTable.status}
-                      </Badge>
-                    </div>
-                    <p>
-                      Capacidad:{" "}
-                      <span className="text-slate-950">{selectedTable.capacity}</span>
-                    </p>
-                    <p>
-                      Reserva activa:{" "}
-                      <span className="text-slate-950">
-                        {selectedTableReservation
-                          ? `${selectedTableReservation.firstName} ${selectedTableReservation.lastName}`
-                          : "Sin reserva activa"}
-                      </span>
-                    </p>
-                    {selectedTable.status === "Ocupada" ? (
-                      <p>
-                        Tiempo restante:{" "}
-                        <span className="text-slate-950">
-                          {selectedTableOccupiedMinutesRemaining} min restantes
-                        </span>
-                      </p>
-                    ) : null}
-                    {selectedTableReservation ? (
-                      <>
-                        <p>
-                          Hora:{" "}
-                          <span className="text-slate-950">{selectedTableReservation.time}</span>
-                        </p>
-                        <p>
-                          Personas:{" "}
-                          <span className="text-slate-950">{selectedTableReservation.partySize}</span>
-                        </p>
-                      </>
-                    ) : null}
-                    {activeConsumptionItems.length > 0 ? (
-                      <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-violet-600">
-                          Consumos
-                        </p>
-                        <p className="mt-2 text-sm font-medium text-slate-950">
-                          {activeConsumptionItems.length} items cargados
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Total estimado: {formatMoney(activeConsumptionTotal)}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm text-slate-500">Seleccioná una mesa.</p>
-                )}
-
-                <Button variant="outline" className="mt-4 w-full rounded-2xl">
-                  Ver detalle
-                </Button>
-              </div>
-            </div>
-
-            <div className="rounded-[30px] border border-slate-200 bg-[linear-gradient(135deg,#d9c3a2,#b68b63)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]">
-              <div className="relative min-h-[620px] overflow-hidden rounded-[24px] border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),transparent_30%),linear-gradient(180deg,#d2b28a,#b68556)] p-4">
-                <div className="absolute left-3 top-3 grid h-[calc(100%-1.5rem)] w-14 grid-rows-4 gap-3 rounded-3xl bg-black/20 p-2">
-                  {["Bar", "Caja", "WC", "Acceso"].map((item) => (
-                    <div
-                      key={item}
-                      className="flex items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-[10px] font-semibold text-white/90"
-                    >
-                      {item}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="ml-20 grid h-full grid-cols-4 grid-rows-2 gap-4">
-                  {tables.map((table) => (
-                    (() => {
-                      const tableReservation = getActiveReservationForTable(table.name);
-                      const tableOccupiedMinutesRemaining =
-                        table.status === "Ocupada"
-                          ? getOccupiedMinutesRemaining(tableReservation)
-                          : null;
-
-                      return (
-                        <button
-                          key={table.id}
-                          type="button"
-                          onClick={() => handleSelectTable(table.id)}
-                          onDoubleClick={() => handleOpenTableDetail(table.id)}
-                          className={cn(
-                            "flex min-h-[120px] flex-col justify-between rounded-[22px] border border-white/20 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:scale-[1.01]",
-                            tableStateClasses[table.status]
-                          )}
-                          style={{
-                            gridColumn: `span ${table.w}`,
-                            gridRow: `span ${table.h}`,
-                          }}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-semibold">{table.name}</span>
-                            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
-                              {table.capacity}p
-                            </span>
-                          </div>
-                          <div className="text-xs opacity-90">{table.status}</div>
-                          {table.status === "Ocupada" ? (
-                            <div className="mt-1 text-[11px] font-medium opacity-90">
-                              {tableOccupiedMinutesRemaining} min restantes
-                            </div>
-                          ) : null}
-                        </button>
-                      );
-                    })()
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+    <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)_320px] xl:items-start">
       <Card className="xl:sticky xl:top-6 xl:h-fit">
-        <CardHeader>
+        <CardHeader className="border-b border-slate-100 pb-4">
           <CardTitle>Acciones rápidas</CardTitle>
+          <p className="text-sm text-slate-500">
+            Operación directa sobre la mesa seleccionada.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4 pt-4">
           <Button
             variant="outline"
             className="w-full justify-start rounded-2xl"
@@ -381,6 +210,264 @@ export default function FloorPlanPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader className="flex flex-col gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Plano de mesas</CardTitle>
+            <p className="text-sm text-slate-500">
+              Plano operativo dentro de una card, con estado por color.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" className="rounded-2xl">
+              Editar Mapa
+            </Button>
+            <Button variant="outline" className="rounded-2xl">
+              Unir Mesas
+            </Button>
+            <Button className="rounded-2xl">+ Nueva Mesa</Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 pt-4">
+          <div className="flex flex-wrap gap-2">
+            {legend.map(([label, color]) => (
+              <div
+                key={label}
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"
+              >
+                <span className={cn("h-2.5 w-2.5 rounded-full", color)} />
+                {label}
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-[30px] border border-slate-200 bg-[linear-gradient(135deg,#d9c3a2,#b68b63)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]">
+            <div className="relative min-h-[620px] overflow-hidden rounded-[24px] border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),transparent_30%),linear-gradient(180deg,#d2b28a,#b68556)] p-4">
+              <div className="absolute left-3 top-3 grid h-[calc(100%-1.5rem)] w-14 grid-rows-4 gap-3 rounded-3xl bg-black/20 p-2">
+                {["Bar", "Caja", "WC", "Acceso"].map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-[10px] font-semibold text-white/90"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+
+              <div className="ml-20 grid h-full grid-cols-4 grid-rows-2 gap-4">
+                {tables.map((table) => {
+                  const tableReservation = getActiveReservationForTable(table.name);
+                  const tableOccupiedMinutesRemaining =
+                    table.status === "Ocupada"
+                      ? getOccupiedMinutesRemaining(tableReservation)
+                      : null;
+
+                  return (
+                    <button
+                      key={table.id}
+                      type="button"
+                      onClick={() => handleSelectTable(table.id)}
+                      onDoubleClick={() => handleOpenTableDetail(table.id)}
+                      className={cn(
+                        "flex min-h-[120px] flex-col justify-between rounded-[22px] border border-white/20 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:scale-[1.01]",
+                        tableStateClasses[table.status]
+                      )}
+                      style={{
+                        gridColumn: `span ${table.w}`,
+                        gridRow: `span ${table.h}`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold">{table.name}</span>
+                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
+                          {table.capacity}p
+                        </span>
+                      </div>
+                      <div className="text-xs opacity-90">{table.status}</div>
+                      {table.status === "Ocupada" ? (
+                        <div className="mt-1 text-[11px] font-medium opacity-90">
+                          {tableOccupiedMinutesRemaining} min restantes
+                        </div>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="xl:sticky xl:top-6 xl:h-fit">
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <CardTitle>Información</CardTitle>
+          <p className="text-sm text-slate-500">
+            Detalle completo de la mesa seleccionada.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          {!selectedTable ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5">
+              <p className="text-base font-semibold text-slate-950">Seleccioná una mesa</p>
+              <p className="mt-2 text-sm text-slate-500">
+                Al elegir una mesa del plano vas a ver aquí el detalle operativo, la reserva
+                asociada y los consumos cargados.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Mesa</p>
+                  <p className="mt-2 text-sm font-medium text-slate-950">{selectedTable.name}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                    Estado actual
+                  </p>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "mt-2 w-fit whitespace-nowrap",
+                      tableStateClasses[selectedTable.status]
+                    )}
+                  >
+                    {selectedTable.status}
+                  </Badge>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                    Capacidad
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-slate-950">
+                    {selectedTable.capacity} personas
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                    Tiempo restante
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-slate-950">
+                    {selectedTable.status === "Ocupada" &&
+                    selectedTableOccupiedMinutesRemaining !== null
+                      ? `${selectedTableOccupiedMinutesRemaining} min restantes`
+                      : "No disponible"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                    Reserva asociada
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-slate-950">
+                    {selectedTableReservation
+                      ? `${selectedTableReservation.firstName} ${selectedTableReservation.lastName}`
+                      : "Sin reserva activa"}
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                      Cliente asociado
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">
+                      {selectedTableReservation
+                        ? `${selectedTableReservation.firstName} ${selectedTableReservation.lastName}`
+                        : "Sin cliente asociado"}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                      Estado de reserva
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">
+                      {selectedTableReservation?.status ?? "Sin reserva activa"}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedTableReservation ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                        Hora
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-slate-950">
+                        {selectedTableReservation.time}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                        Personas
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-slate-950">
+                        {selectedTableReservation.partySize}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                      Consumos
+                    </p>
+                    <span className="text-xs text-slate-400">
+                      {activeConsumptionItems.length} items
+                    </span>
+                  </div>
+                  {activeConsumptionItems.length > 0 ? (
+                    <div className="mt-3 space-y-2">
+                      {activeConsumptionItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-2 text-sm"
+                        >
+                          <div>
+                            <p className="font-medium text-slate-950">
+                              {item.quantity}x {item.productName}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {formatMoney(item.unitPrice)} c/u
+                            </p>
+                          </div>
+                          <p className="font-medium text-slate-950">
+                            {formatMoney(item.lineTotal)}
+                          </p>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm">
+                        <span className="text-slate-500">Subtotal</span>
+                        <span className="font-semibold text-slate-950">
+                          {formatMoney(activeConsumptionTotal)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-500">Sin consumos cargados.</p>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full rounded-2xl"
+                onClick={() => {
+                  if (!selectedTable) return;
+                  handleOpenTableDetail(selectedTable.id);
+                }}
+              >
+                Ver detalle
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Dialog
         open={isTableDetailOpen && Boolean(detailTable)}
         onOpenChange={(open) => {
@@ -426,7 +513,7 @@ export default function FloorPlanPage() {
                           : "—",
                       ],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-2xl border border-slate-200 p-4">
+                      <div key={label} className="rounded-3xl border border-slate-200 p-4">
                         <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
                           {label}
                         </p>
@@ -558,7 +645,9 @@ export default function FloorPlanPage() {
       </Dialog>
 
       <RestaurantConsumptionModal
-        key={`${selectedTableReservation?.id ?? "no-reservation"}-${isConsumptionOpen ? "open" : "closed"}`}
+        key={`${selectedTableReservation?.id ?? "no-reservation"}-${
+          isConsumptionOpen ? "open" : "closed"
+        }`}
         open={isConsumptionOpen}
         onOpenChange={setIsConsumptionOpen}
         reservationId={selectedTableReservation?.id ?? null}

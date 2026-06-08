@@ -1,10 +1,12 @@
-export const APP_VERSION = "v 1.3.1";
+export const APP_VERSION = "v 1.3.2";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Paneles laterales del plano reordenados",
+      "Informacion de mesa con resumen de consumos",
       "Interaccion de mesas separa click simple y doble click",
       "Consumos repetidos agrupados por producto",
       "Consumos por mesa agregados desde plano de mesas",
