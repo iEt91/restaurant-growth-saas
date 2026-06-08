@@ -1,10 +1,12 @@
-export const APP_VERSION = "v 1.4.0";
+export const APP_VERSION = "v 1.4.1";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Boton Nuevo producto reubicado en la columna lateral",
+      "Precio de menu con entrada flexible y guardado numerico",
       "Menu funcional con productos editables",
       "Productos activos e inactivos sincronizados con consumos",
       "Catalogo compartido entre menu y consumos por mesa",
