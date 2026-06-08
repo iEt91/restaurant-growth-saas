@@ -18,12 +18,16 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import type { ReservationChannel as RestaurantReservationChannel } from "@/data/restaurant-ops";
 import {
+  endOfMonthDateKey,
+  endOfWeekDateKey,
   formatDisplayDate,
   getTodayDateKey,
+  isDateWithinRange,
   isFutureDate,
   isPastDate,
-  isToday,
   normalizeDateKey,
+  startOfMonthDateKey,
+  startOfWeekDateKey,
 } from "@/lib/date-utils";
 import {
   CalendarDays,
@@ -58,6 +62,19 @@ type ReservationStatus = (typeof reservationStatuses)[number];
 type ReservationActionStatus = Exclude<ReservationStatus, "Todas">;
 type ReservationChannel = RestaurantReservationChannel;
 type DialogMode = "create" | "edit" | "view";
+type ReservationRangeFilter = "Hoy" | "Semana" | "Mes" | "Personalizado";
+
+type ReservationRange = {
+  from: string;
+  to: string;
+};
+
+const rangeFilterOptions: ReservationRangeFilter[] = [
+  "Hoy",
+  "Semana",
+  "Mes",
+  "Personalizado",
+];
 
 type ReservationRow = {
   id: string;
@@ -161,6 +178,45 @@ function normalizeTableInputValue(value: string) {
   return trimmed;
 }
 
+function buildRangeForFilter(
+  filter: ReservationRangeFilter,
+  todayKey: string,
+  customRange: ReservationRange
+): ReservationRange {
+  if (filter === "Semana") {
+    return {
+      from: startOfWeekDateKey(todayKey),
+      to: endOfWeekDateKey(todayKey),
+    };
+  }
+
+  if (filter === "Mes") {
+    return {
+      from: startOfMonthDateKey(todayKey),
+      to: endOfMonthDateKey(todayKey),
+    };
+  }
+
+  if (filter === "Personalizado") {
+    const from = normalizeDateKey(customRange.from) ?? todayKey;
+    const to = normalizeDateKey(customRange.to) ?? todayKey;
+
+    return from <= to ? { from, to } : { from: to, to: from };
+  }
+
+  return {
+    from: todayKey,
+    to: todayKey,
+  };
+}
+
+function sortReservationsByDateAndTime(
+  left: Pick<ReservationRow, "date" | "time">,
+  right: Pick<ReservationRow, "date" | "time">
+) {
+  return `${left.date}T${left.time}`.localeCompare(`${right.date}T${right.time}`);
+}
+
 function buildGuestName(reservation: Pick<ReservationRow, "firstName" | "lastName">) {
   return `${reservation.firstName} ${reservation.lastName}`.trim();
 }
@@ -219,8 +275,31 @@ export default function ReservationsPage() {
     clearFocusedReservation,
   } = useRestaurantFlow();
   const currentDateKey = useCurrentDateKey();
-  const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
-  const effectiveSelectedDate = selectedDate ?? currentDateKey ?? "";
+  const effectiveTodayKey = currentDateKey ?? "";
+  const [selectedRangeFilter, setSelectedRangeFilter] =
+    React.useState<ReservationRangeFilter>("Hoy");
+  const [customRange, setCustomRange] = React.useState<ReservationRange>({
+    from: "",
+    to: "",
+  });
+  const effectiveCustomRange = React.useMemo(
+    () => ({
+      from: customRange.from || effectiveTodayKey,
+      to: customRange.to || effectiveTodayKey,
+    }),
+    [customRange, effectiveTodayKey]
+  );
+  const activeRange = React.useMemo(
+    () =>
+      effectiveTodayKey
+        ? buildRangeForFilter(
+            selectedRangeFilter,
+            effectiveTodayKey,
+            effectiveCustomRange
+          )
+        : { from: "", to: "" },
+    [effectiveCustomRange, effectiveTodayKey, selectedRangeFilter]
+  );
   const [selectedFilter, setSelectedFilter] =
     React.useState<ReservationStatus>("Todas");
   const [dialog, setDialog] = React.useState<ReservationDialogState>({
@@ -234,14 +313,16 @@ export default function ReservationsPage() {
   const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
   const nextIdRef = React.useRef(reservations.length + 1);
 
-  const reservationsForSelectedDate = React.useMemo(
+  const reservationsInActiveRange = React.useMemo(
     () =>
-      effectiveSelectedDate
-        ? reservations.filter((reservation) =>
-            isToday(reservation.date, effectiveSelectedDate)
-          )
+      activeRange.from && activeRange.to
+        ? reservations
+            .filter((reservation) =>
+              isDateWithinRange(reservation.date, activeRange.from, activeRange.to)
+            )
+            .sort(sortReservationsByDateAndTime)
         : [],
-    [effectiveSelectedDate, reservations]
+    [activeRange.from, activeRange.to, reservations]
   );
 
   const filterCounts = React.useMemo(() => {
@@ -251,7 +332,7 @@ export default function ReservationsPage() {
           return acc;
         }
 
-        acc[status] = reservationsForSelectedDate.filter(
+        acc[status] = reservationsInActiveRange.filter(
           (reservation) => reservation.status === status
         ).length;
         return acc;
@@ -260,27 +341,32 @@ export default function ReservationsPage() {
     );
 
     return {
-      Todas: reservationsForSelectedDate.length,
+      Todas: reservationsInActiveRange.length,
       ...counts,
     };
-  }, [reservationsForSelectedDate]);
+  }, [reservationsInActiveRange]);
 
   const visibleReservations = React.useMemo(() => {
     if (selectedFilter === "Todas") {
-      return reservationsForSelectedDate;
+      return reservationsInActiveRange;
     }
 
-    return reservationsForSelectedDate.filter((reservation) => reservation.status === selectedFilter);
-  }, [reservationsForSelectedDate, selectedFilter]);
+    return reservationsInActiveRange.filter((reservation) => reservation.status === selectedFilter);
+  }, [reservationsInActiveRange, selectedFilter]);
 
   function openCreateDialog() {
+    const suggestedDate =
+      selectedRangeFilter === "Personalizado"
+        ? activeRange.from || effectiveTodayKey || getTodayDateKey()
+        : effectiveTodayKey || getTodayDateKey();
+
     setDialog({
       open: true,
       mode: "create",
       reservationId: null,
       form: {
         ...emptyFormState,
-        date: effectiveSelectedDate || getTodayDateKey(),
+        date: suggestedDate,
       },
       error: null,
       notice: null,
@@ -682,20 +768,68 @@ export default function ReservationsPage() {
               <SlidersHorizontal className="mr-2 h-4 w-4" />
               Filtros
             </Button>
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-              <CalendarDays className="mr-2 h-4 w-4" />
-              <span className="font-medium">
-                {effectiveSelectedDate ? formatDisplayDate(effectiveSelectedDate) : "Hoy"}
-              </span>
-              <Input
-                type="date"
-                value={effectiveSelectedDate}
-                onChange={(event) =>
-                  setSelectedDate(normalizeDateKey(event.target.value) ?? getTodayDateKey())
-                }
-                className="h-8 w-[132px] rounded-xl border-slate-200 bg-slate-50 px-2 text-xs"
-              />
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+              {rangeFilterOptions.map((option) => {
+                const isActive = selectedRangeFilter === option;
+
+                return (
+                  <Button
+                    key={option}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={`h-9 rounded-xl px-3 ${
+                      isActive
+                        ? "bg-slate-950 text-white hover:bg-slate-950 hover:text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                    }`}
+                    onClick={() => setSelectedRangeFilter(option)}
+                  >
+                    {option}
+                  </Button>
+                );
+              })}
             </div>
+            {selectedRangeFilter === "Personalizado" ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                <CalendarDays className="h-4 w-4 text-slate-500" />
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                  Desde
+                </span>
+                <Input
+                  type="date"
+                  value={effectiveCustomRange.from}
+                  onChange={(event) =>
+                    setCustomRange((current) => ({
+                      ...current,
+                      from: normalizeDateKey(event.target.value) ?? effectiveTodayKey,
+                    }))
+                  }
+                  className="h-8 w-[132px] rounded-xl border-slate-200 bg-slate-50 px-2 text-xs"
+                />
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                  Hasta
+                </span>
+                <Input
+                  type="date"
+                  value={effectiveCustomRange.to}
+                  onChange={(event) =>
+                    setCustomRange((current) => ({
+                      ...current,
+                      to: normalizeDateKey(event.target.value) ?? effectiveTodayKey,
+                    }))
+                  }
+                  className="h-8 w-[132px] rounded-xl border-slate-200 bg-slate-50 px-2 text-xs"
+                />
+              </div>
+            ) : (
+              <Badge variant="outline" className="rounded-2xl px-3 py-2 text-sm">
+                <CalendarDays className="mr-2 h-4 w-4" />
+                {selectedRangeFilter === "Hoy"
+                  ? formatDisplayDate(activeRange.from)
+                  : `${formatDisplayDate(activeRange.from)} - ${formatDisplayDate(activeRange.to)}`}
+              </Badge>
+            )}
             <Button className="rounded-2xl" onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
               Nueva Reserva

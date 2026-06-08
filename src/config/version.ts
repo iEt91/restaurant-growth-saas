@@ -1,10 +1,13 @@
-export const APP_VERSION = "v 1.7.4";
+export const APP_VERSION = "v 1.7.5";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Filtros rapidos Hoy, Semana, Mes y Personalizado en Reservas",
+      "Selector de fecha duplicado reemplazado por control unico de rango",
+      "Conteos de estado recalculados segun el rango activo",
       "Normalizacion global de fechas y bloqueo operativo de reservas futuras",
       "Reportes abre por defecto en Hoy con comparaciones yyyy-mm-dd",
       "Reservas futuras no pueden ocuparse, completarse ni cargar consumos",
