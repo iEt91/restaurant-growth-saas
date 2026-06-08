@@ -477,16 +477,26 @@ export default function ReservationsPage() {
           </div>
 
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-100">
+            <table className="min-w-full table-fixed divide-y divide-slate-100">
+              <colgroup>
+                <col className="w-[110px]" />
+                <col className="w-[250px]" />
+                <col className="w-[110px]" />
+                <col className="w-[130px]" />
+                <col className="w-[120px]" />
+                <col className="w-[120px]" />
+                <col className="w-[360px]" />
+                <col className="w-[200px]" />
+              </colgroup>
               <thead className="bg-slate-50">
                 <tr className="text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <th className="px-4 py-3">Hora</th>
                   <th className="px-4 py-3">Cliente</th>
-                  <th className="px-4 py-3">Personas</th>
-                  <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3">Mesa</th>
-                  <th className="px-4 py-3">Canal</th>
-                  <th className="px-4 py-3">Estado / Flujo</th>
+                  <th className="px-4 py-3 text-center">Personas</th>
+                  <th className="px-4 py-3 text-center">Estado</th>
+                  <th className="px-4 py-3 text-center">Mesa</th>
+                  <th className="px-4 py-3 text-center">Canal</th>
+                  <th className="px-4 py-3 text-center">Estado / Flujo</th>
                   <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -507,8 +517,8 @@ export default function ReservationsPage() {
                         {reservation.phone}
                       </div>
                     </td>
-                    <td className="px-4 py-3">{reservation.partySize}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-center">{reservation.partySize}</td>
+                    <td className="px-4 py-3 text-center">
                       <Badge
                         variant="outline"
                         className={statusStyles[reservation.status]}
@@ -516,15 +526,15 @@ export default function ReservationsPage() {
                         {reservation.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">{reservation.tableName}</td>
-                    <td className="px-4 py-3">{reservation.channel}</td>
+                    <td className="px-4 py-3 text-center">{reservation.tableName}</td>
+                    <td className="px-4 py-3 text-center">{reservation.channel}</td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex min-h-10 w-full flex-wrap items-center justify-center gap-2">
                         {reservation.status === "Pendiente" ? (
                           <>
                             <Button
                               size="sm"
-                              className="rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                              className="h-9 rounded-xl bg-emerald-600 px-3 text-white hover:bg-emerald-700"
                               onClick={() =>
                                 updateReservationStatus(reservation.id, "Confirmada")
                               }
@@ -535,7 +545,7 @@ export default function ReservationsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                              className="h-9 rounded-xl border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
                               onClick={() =>
                                 updateReservationStatus(reservation.id, "Cancelada")
                               }
@@ -550,7 +560,7 @@ export default function ReservationsPage() {
                           <>
                             <Button
                               size="sm"
-                              className="rounded-xl bg-violet-600 text-white hover:bg-violet-700"
+                              className="h-9 rounded-xl bg-violet-600 px-3 text-white hover:bg-violet-700"
                               onClick={() =>
                                 updateReservationStatus(reservation.id, "Ocupada")
                               }
@@ -561,7 +571,7 @@ export default function ReservationsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                              className="h-9 rounded-xl border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
                               onClick={() =>
                                 updateReservationStatus(reservation.id, "Cancelada")
                               }
@@ -572,7 +582,7 @@ export default function ReservationsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="rounded-xl border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+                              className="h-9 rounded-xl border-slate-200 bg-slate-50 px-3 text-slate-700 hover:bg-slate-100 hover:text-slate-950"
                               onClick={() =>
                                 updateReservationStatus(reservation.id, "No-show")
                               }
@@ -586,7 +596,7 @@ export default function ReservationsPage() {
                         {reservation.status === "Ocupada" ? (
                           <Button
                             size="sm"
-                            className="rounded-xl bg-emerald-700 text-white hover:bg-emerald-800"
+                            className="h-9 rounded-xl bg-emerald-700 px-3 text-white hover:bg-emerald-800"
                             onClick={() =>
                               updateReservationStatus(reservation.id, "Completada")
                             }
@@ -598,7 +608,7 @@ export default function ReservationsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="inline-flex flex-wrap justify-end gap-2">
+                      <div className="inline-flex min-w-[170px] flex-wrap justify-end gap-2">
                         <Button
                           variant="outline"
                           size="sm"
