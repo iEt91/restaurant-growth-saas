@@ -1,10 +1,12 @@
-export const APP_VERSION = "v 1.1.5";
+export const APP_VERSION = "v 1.2.0";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
-    date: "2026-06-07",
+    date: "2026-06-08",
     notes: [
+      "Reservas sincronizadas con estados de mesas",
+      "Plano de mesas conectado al flujo de reservas",
       "Modal de vista con ficha premium y acciones rapidas",
       "Modal de edicion con flujo visible y acciones rapidas",
       "Anchos de columnas optimizados en reservas",

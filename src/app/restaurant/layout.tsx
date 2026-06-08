@@ -1,4 +1,5 @@
 import { AppShell, type NavItem } from "@/components/app-shell";
+import { RestaurantFlowProvider } from "@/components/restaurant-flow-provider";
 import type { ReactNode } from "react";
 
 const nav: NavItem[] = [
@@ -17,16 +18,18 @@ export default function RestaurantLayout({
   children: ReactNode;
 }>) {
   return (
-    <AppShell
-      brand="Avenida 312"
-      title="Panel Restaurante"
-      subtitle="Operación diaria, reservas, clientes y menú."
-      nav={nav}
-      roleLabel="Dueño / Gerente"
-      userLabel="Sofía Martínez"
-      showHeader={false}
-    >
-      {children}
-    </AppShell>
+    <RestaurantFlowProvider>
+      <AppShell
+        brand="Avenida 312"
+        title="Panel Restaurante"
+        subtitle="Operación diaria, reservas, clientes y menú."
+        nav={nav}
+        roleLabel="Dueño / Gerente"
+        userLabel="Sofía Martínez"
+        showHeader={false}
+      >
+        {children}
+      </AppShell>
+    </RestaurantFlowProvider>
   );
 }

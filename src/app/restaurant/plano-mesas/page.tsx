@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { tables } from "@/data/mock";
+import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import type { RestaurantTable } from "@/types/domain";
 import { cn } from "@/lib/utils";
 
@@ -28,13 +29,42 @@ const legend = [
   ["Reservada", "bg-amber-400"],
   ["Ocupada", "bg-rose-500"],
   ["Fuera de servicio", "bg-slate-400"],
-  ["Proxima reserva", "bg-violet-500"],
+  ["Próxima reserva", "bg-violet-500"],
 ] as const;
 
+const manualStatuses: RestaurantTable["status"][] = [
+  "Libre",
+  "Reservada",
+  "Ocupada",
+  "Fuera de servicio",
+];
+
 export default function FloorPlanPage() {
-  const [selectedTable, setSelectedTable] = React.useState<RestaurantTable | null>(
-    tables[1]
+  const router = useRouter();
+  const {
+    tables,
+    getActiveReservationForTable,
+    updateTableStatus,
+    openReservationDetail,
+  } = useRestaurantFlow();
+  const [selectedTableId, setSelectedTableId] = React.useState<string | null>(
+    () => tables[0]?.id ?? null
   );
+
+  const selectedTable =
+    tables.find((table) => table.id === selectedTableId) ?? null;
+  const activeReservation = selectedTable
+    ? getActiveReservationForTable(selectedTable.name)
+    : null;
+
+  function handleOpenReservation() {
+    if (!activeReservation) {
+      return;
+    }
+
+    openReservationDetail(activeReservation.id);
+    router.push("/restaurant/reservas");
+  }
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1.15fr_0.55fr]">
@@ -56,6 +86,7 @@ export default function FloorPlanPage() {
             <Button className="rounded-2xl">+ Nueva Mesa</Button>
           </div>
         </CardHeader>
+
         <CardContent className="pt-4">
           <div className="grid gap-5 xl:grid-cols-[180px_1fr]">
             <div className="space-y-4">
@@ -63,7 +94,10 @@ export default function FloorPlanPage() {
                 <p className="text-sm font-semibold text-slate-950">Estados</p>
                 <div className="mt-4 space-y-3">
                   {legend.map(([label, color]) => (
-                    <div key={label} className="flex items-center gap-3 text-sm text-slate-600">
+                    <div
+                      key={label}
+                      className="flex items-center gap-3 text-sm text-slate-600"
+                    >
                       <span className={cn("h-3 w-3 rounded-full", color)} />
                       {label}
                     </div>
@@ -72,22 +106,49 @@ export default function FloorPlanPage() {
               </div>
 
               <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-950">Informacion</p>
-                <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <p className="font-medium text-slate-950">Mesa {selectedTable?.name ?? "-"}</p>
-                  <p>
-                    Capacidad:{" "}
-                    <span className="text-slate-950">{selectedTable?.capacity ?? "-"}</span>
-                  </p>
-                  <p>
-                    Estado:{" "}
-                    <span className="text-slate-950">{selectedTable?.status ?? "-"}</span>
-                  </p>
-                  <p>
-                    Reserva:{" "}
-                    <span className="text-slate-950">{selectedTable?.reservationTime ?? "Sin horario"}</span>
-                  </p>
-                </div>
+                <p className="text-sm font-semibold text-slate-950">Información</p>
+
+                {selectedTable ? (
+                  <div className="mt-3 space-y-3 text-sm text-slate-600">
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-950">{selectedTable.name}</p>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "w-fit whitespace-nowrap",
+                          tableStateClasses[selectedTable.status]
+                        )}
+                      >
+                        {selectedTable.status}
+                      </Badge>
+                    </div>
+                    <p>
+                      Capacidad:{" "}
+                      <span className="text-slate-950">{selectedTable.capacity}</span>
+                    </p>
+                    <p>
+                      Reserva activa:{" "}
+                      <span className="text-slate-950">
+                        {activeReservation ? `${activeReservation.firstName} ${activeReservation.lastName}` : "Sin reserva activa"}
+                      </span>
+                    </p>
+                    {activeReservation ? (
+                      <>
+                        <p>
+                          Hora:{" "}
+                          <span className="text-slate-950">{activeReservation.time}</span>
+                        </p>
+                        <p>
+                          Personas:{" "}
+                          <span className="text-slate-950">{activeReservation.partySize}</span>
+                        </p>
+                      </>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-500">Seleccioná una mesa.</p>
+                )}
+
                 <Button variant="outline" className="mt-4 w-full rounded-2xl">
                   Ver detalle
                 </Button>
@@ -107,12 +168,12 @@ export default function FloorPlanPage() {
                   ))}
                 </div>
 
-                <div className="ml-20 grid h-full grid-cols-4 grid-rows-3 gap-4">
+                <div className="ml-20 grid h-full grid-cols-4 grid-rows-2 gap-4">
                   {tables.map((table) => (
                     <button
                       key={table.id}
                       type="button"
-                      onClick={() => setSelectedTable(table)}
+                      onClick={() => setSelectedTableId(table.id)}
                       className={cn(
                         "flex min-h-[120px] flex-col justify-between rounded-[22px] border border-white/20 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:scale-[1.01]",
                         tableStateClasses[table.status]
@@ -126,7 +187,9 @@ export default function FloorPlanPage() {
                         </span>
                       </div>
                       <div className="text-xs opacity-90">
-                        {table.currentGuest ?? "Libre"}
+                        {activeReservation && activeReservation.tableName === table.name
+                          ? `${activeReservation.firstName} ${activeReservation.lastName}`
+                          : "Libre"}
                       </div>
                     </button>
                   ))}
@@ -139,18 +202,47 @@ export default function FloorPlanPage() {
 
       <Card className="xl:sticky xl:top-6 xl:h-fit">
         <CardHeader>
-          <CardTitle>Acciones rapidas</CardTitle>
+          <CardTitle>Acciones rápidas</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {["Ver reserva", "Agregar consumo", "Cambiar estado", "Cerrar mesa"].map((item) => (
-            <Button key={item} variant="outline" className="w-full justify-start rounded-2xl">
-              {item}
-            </Button>
-          ))}
+          <Button
+            variant="outline"
+            className="w-full justify-start rounded-2xl"
+            onClick={handleOpenReservation}
+            disabled={!activeReservation}
+          >
+            Ver reserva
+          </Button>
+
+          <Button variant="outline" className="w-full justify-start rounded-2xl">
+            Agregar consumo
+          </Button>
+
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+              Cambiar estado manual
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {manualStatuses.map((status) => (
+                <Button
+                  key={status}
+                  type="button"
+                  variant={selectedTable?.status === status ? "default" : "outline"}
+                  className="rounded-2xl"
+                  onClick={() => {
+                    if (!selectedTable) return;
+                    updateTableStatus(selectedTable.id, status);
+                  }}
+                >
+                  {status}
+                </Button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <Dialog open={Boolean(selectedTable)} onOpenChange={(open) => !open && setSelectedTable(null)}>
+      <Dialog open={Boolean(selectedTable)} onOpenChange={(open) => !open && setSelectedTableId(null)}>
         <DialogContent className="max-w-2xl">
           {selectedTable ? (
             <div className="space-y-5">
@@ -166,48 +258,117 @@ export default function FloorPlanPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                {[
-                  ["Cliente asociado", selectedTable.currentGuest ?? "Sin asignar"],
-                  ["Cantidad de personas", String(selectedTable.capacity)],
-                  ["Hora", selectedTable.reservationTime ?? "Sin horario"],
-                  ["Visitas del cliente", selectedTable.customerVisits ? String(selectedTable.customerVisits) : "0"],
-                  ["Ticket promedio", selectedTable.averageTicket ? `$${selectedTable.averageTicket.toLocaleString("es-AR")}` : "—"],
-                  ["Ultima visita", selectedTable.lastVisit ?? "—"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-2xl border border-slate-200 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
-                    <p className="mt-2 text-sm font-medium text-slate-950">{value}</p>
+              {activeReservation ? (
+                <>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {[
+                      ["Mesa", selectedTable.name],
+                      ["Estado de mesa", selectedTable.status],
+                      [
+                        "Cliente asociado",
+                        `${activeReservation.firstName} ${activeReservation.lastName}`,
+                      ],
+                      ["Reserva asociada", activeReservation.date],
+                      ["Hora", activeReservation.time],
+                      ["Personas", String(activeReservation.partySize)],
+                      ["Estado de reserva", activeReservation.status],
+                      [
+                        "Ticket promedio",
+                        selectedTable.averageTicket
+                          ? `$${selectedTable.averageTicket.toLocaleString("es-AR")}`
+                          : "—",
+                      ],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-2xl border border-slate-200 p-4">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                          {label}
+                        </p>
+                        <p className="mt-2 text-sm font-medium text-slate-950">{value}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-950">Preferencias</p>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {selectedTable.preferences?.join(" · ") ?? "Sin preferencias registradas"}
-                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-3xl bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-950">Preferencias</p>
+                      <p className="mt-2 text-sm text-slate-600">
+                        {activeReservation.preferences || "Sin preferencias registradas"}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-950">Alergias</p>
+                      <p className="mt-2 text-sm text-slate-600">
+                        {activeReservation.allergies || "Sin alergias registradas"}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                      Mesa
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">{selectedTable.name}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                      Estado
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">
+                      {selectedTable.status}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                      Capacidad
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">
+                      {selectedTable.capacity} personas
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                      Reserva
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-950">
+                      Sin reserva activa
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-950">Alergias</p>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {selectedTable.allergies?.join(" · ") ?? "Sin alergias registradas"}
-                  </p>
-                </div>
-              </div>
+              )}
 
               <div className="flex flex-wrap justify-end gap-3">
-                <Button variant="outline" className="rounded-2xl">
+                <Button
+                  variant="outline"
+                  className="rounded-2xl"
+                  onClick={handleOpenReservation}
+                  disabled={!activeReservation}
+                >
                   Ver reserva
                 </Button>
                 <Button variant="outline" className="rounded-2xl">
                   Agregar consumo
                 </Button>
-                <Button variant="secondary" className="rounded-2xl">
-                  Cambiar estado
+                <Button
+                  variant="secondary"
+                  className="rounded-2xl"
+                  onClick={() => {
+                    if (!selectedTable) return;
+                    updateTableStatus(selectedTable.id, "Libre");
+                  }}
+                >
+                  Cambiar a libre
                 </Button>
-                <Button className="rounded-2xl">Cerrar mesa</Button>
+                <Button
+                  className="rounded-2xl"
+                  onClick={() => {
+                    if (!selectedTable) return;
+                    updateTableStatus(selectedTable.id, "Ocupada");
+                  }}
+                >
+                  Cerrar mesa
+                </Button>
               </div>
             </div>
           ) : null}

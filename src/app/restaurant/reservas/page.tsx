@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import {
   CalendarDays,
   CheckCircle2,
@@ -26,7 +27,6 @@ import {
   SquareDashedMousePointer,
   TimerReset,
 } from "lucide-react";
-
 const reservationStatuses = [
   "Todas",
   "Pendiente",
@@ -86,111 +86,6 @@ type ReservationDialogState = {
   form: ReservationFormState;
   error: string | null;
 };
-
-const initialReservations: ReservationRow[] = [
-  {
-    id: "res-1",
-    firstName: "María",
-    lastName: "Fernández",
-    phone: "+54 11 4444-1212",
-    email: "maria.fernandez@email.com",
-    birthday: "18 de julio",
-    allergies: "Gluten",
-    preferences: "Mesa tranquila, vino blanco",
-    comments: "Celebración de aniversario",
-    date: "2026-06-12",
-    time: "20:30",
-    partySize: 4,
-    channel: "WhatsApp",
-    status: "Confirmada",
-    tableName: "Mesa 12",
-  },
-  {
-    id: "res-2",
-    firstName: "Santiago",
-    lastName: "Varela",
-    phone: "+54 11 4444-3434",
-    email: "santi.varela@email.com",
-    birthday: "2 de marzo",
-    allergies: "Frutos secos",
-    preferences: "Ventana, postres con chocolate",
-    comments: "Llega 10 min tarde",
-    date: "2026-06-12",
-    time: "21:00",
-    partySize: 2,
-    channel: "Web",
-    status: "Pendiente",
-    tableName: "Mesa 07",
-  },
-  {
-    id: "res-3",
-    firstName: "Paula",
-    lastName: "Acosta",
-    phone: "+54 11 4444-5656",
-    email: "paula.acosta@email.com",
-    birthday: "9 de noviembre",
-    allergies: "Lácteos",
-    preferences: "Menú degustación, mesa central",
-    comments: "VIP frecuente",
-    date: "2026-06-13",
-    time: "13:15",
-    partySize: 6,
-    channel: "Teléfono",
-    status: "Ocupada",
-    tableName: "Mesa 03",
-  },
-  {
-    id: "res-4",
-    firstName: "Nicolás",
-    lastName: "Suárez",
-    phone: "+54 11 4444-7878",
-    email: "nicolas.suarez@email.com",
-    birthday: "20 de enero",
-    allergies: "",
-    preferences: "Mesa 1-2",
-    comments: "No llegó a la reserva anterior",
-    date: "2026-06-13",
-    time: "22:00",
-    partySize: 8,
-    channel: "Presencial",
-    status: "No-show",
-    tableName: "Mesa 01",
-  },
-  {
-    id: "res-5",
-    firstName: "Laura",
-    lastName: "Fernández",
-    phone: "+54 11 5555-9090",
-    email: "laura.fernandez@email.com",
-    birthday: "12 de septiembre",
-    allergies: "Sin gluten",
-    preferences: "Terraza, luz tenue",
-    comments: "Cena de trabajo",
-    date: "2026-06-14",
-    time: "19:30",
-    partySize: 3,
-    channel: "WhatsApp",
-    status: "Completada",
-    tableName: "Mesa 09",
-  },
-  {
-    id: "res-6",
-    firstName: "Pedro",
-    lastName: "Sosa",
-    phone: "+54 11 5555-8888",
-    email: "pedro.sosa@email.com",
-    birthday: "3 de abril",
-    allergies: "",
-    preferences: "Barra, sin picante",
-    comments: "Confirmada por concierge",
-    date: "2026-06-14",
-    time: "23:00",
-    partySize: 2,
-    channel: "Presencial",
-    status: "Cancelada",
-    tableName: "Mesa 04",
-  },
-];
 
 const statusStyles: Record<ReservationActionStatus, string> = {
   Pendiente: "bg-amber-50 text-amber-700 border-amber-200",
@@ -287,8 +182,13 @@ const reservationFlowActions: Record<
 };
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] =
-    React.useState<ReservationRow[]>(initialReservations);
+  const {
+    reservations,
+    saveReservation,
+    updateReservationStatus: syncReservationStatus,
+    focusedReservationId,
+    clearFocusedReservation,
+  } = useRestaurantFlow();
   const [selectedFilter, setSelectedFilter] =
     React.useState<ReservationStatus>("Todas");
   const [dialog, setDialog] = React.useState<ReservationDialogState>({
@@ -298,7 +198,7 @@ export default function ReservationsPage() {
     form: emptyFormState,
     error: null,
   });
-  const nextIdRef = React.useRef(initialReservations.length + 1);
+  const nextIdRef = React.useRef(reservations.length + 1);
 
   const filterCounts = React.useMemo(() => {
     const counts = reservationStatuses.reduce(
@@ -382,21 +282,36 @@ export default function ReservationsPage() {
     reservationId: string,
     nextStatus: ReservationActionStatus
   ) {
-    setReservations((current) =>
-      current.map((reservation) =>
-        reservation.id === reservationId
-          ? { ...reservation, status: nextStatus }
-          : reservation
-      )
-    );
+    syncReservationStatus(reservationId, nextStatus);
   }
 
-  function getReservationById(reservationId: string | null) {
-    if (!reservationId) return null;
-    return reservations.find((reservation) => reservation.id === reservationId) ?? null;
-  }
+  const getReservationById = React.useCallback(
+    (reservationId: string | null) => {
+      if (!reservationId) return null;
+      return reservations.find((reservation) => reservation.id === reservationId) ?? null;
+    },
+    [reservations]
+  );
 
   const activeReservation = getReservationById(dialog.reservationId);
+
+  React.useEffect(() => {
+    if (!focusedReservationId) {
+      return;
+    }
+
+    const reservationId = focusedReservationId;
+    const timeoutId = window.setTimeout(() => {
+      const focusedReservation = getReservationById(reservationId);
+      if (focusedReservation) {
+        openViewDialog(focusedReservation);
+      }
+
+      clearFocusedReservation();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [clearFocusedReservation, focusedReservationId, getReservationById]);
 
   function openReservationEditFromView() {
     if (!activeReservation) return;
@@ -433,15 +348,7 @@ export default function ReservationsPage() {
       tableName: dialog.form.tableName.trim() || "—",
     };
 
-    setReservations((current) => {
-      if (dialog.mode === "edit" && dialog.reservationId) {
-        return current.map((reservation) =>
-          reservation.id === dialog.reservationId ? nextReservation : reservation
-        );
-      }
-
-      return [nextReservation, ...current];
-    });
+    saveReservation(nextReservation);
 
     closeDialog();
   }
@@ -1137,3 +1044,4 @@ export default function ReservationsPage() {
     </div>
   );
 }
+
