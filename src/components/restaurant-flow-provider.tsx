@@ -19,6 +19,11 @@ import { customers as seededCustomers, menuItems as seededMenuItems } from "@/da
 
 type TableOverrideStatus = RestaurantTable["status"];
 
+type ReservationMutationResult = {
+  reservation: RestaurantReservation | null;
+  warning: string | null;
+};
+
 type RestaurantFlowContextValue = {
   customers: Customer[];
   reservations: RestaurantReservation[];
@@ -27,13 +32,13 @@ type RestaurantFlowContextValue = {
   standardReservationDurationMinutes: number;
   intervalBetweenReservationsMinutes: number;
   saveCustomer: (customer: Customer) => void;
-  saveReservation: (reservation: RestaurantReservation) => void;
+  saveReservation: (reservation: RestaurantReservation) => ReservationMutationResult;
   saveMenuItem: (menuItem: MenuItem) => void;
   deleteMenuItem: (menuItemId: string) => void;
   updateReservationStatus: (
     reservationId: string,
     nextStatus: ReservationStatus
-  ) => void;
+  ) => ReservationMutationResult;
   updateTableStatus: (tableId: string, nextStatus: TableOverrideStatus) => void;
   setMenuItemActive: (menuItemId: string, active: boolean) => void;
   setStandardReservationDurationMinutes: (minutes: number) => void;
@@ -101,6 +106,163 @@ function buildReservationDateLabel(date: string) {
   return `${day}/${month}/${year}`;
 }
 
+function parseTimeToMinutes(time: string) {
+  const [hoursRaw, minutesRaw] = time.split(":");
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function getReservationWindow(
+  reservation: Pick<RestaurantReservation, "date" | "time">,
+  durationMinutes: number
+) {
+  const start = parseTimeToMinutes(reservation.time);
+
+  if (start === null) {
+    return null;
+  }
+
+  return {
+    date: reservation.date,
+    start,
+    end: start + durationMinutes,
+  };
+}
+
+function windowsOverlap(
+  left: { date: string; start: number; end: number },
+  right: { date: string; start: number; end: number }
+) {
+  if (left.date !== right.date) {
+    return false;
+  }
+
+  return left.start < right.end && right.start < left.end;
+}
+
+function normalizeTableName(tableName: string) {
+  const normalized = tableName.trim();
+
+  if (!normalized || normalized === "—" || normalized === "â€”") {
+    return "";
+  }
+
+  return normalized;
+}
+
+function isBlockingReservationStatus(status: ReservationStatus) {
+  return status === "Confirmada" || status === "Ocupada";
+}
+
+function canAssignTableToReservation(
+  table: RestaurantTable,
+  reservation: Pick<
+    RestaurantReservation,
+    "id" | "date" | "time" | "partySize" | "tableName"
+  >,
+  reservations: RestaurantReservation[],
+  durationMinutes: number
+) {
+  if (table.status === "Fuera de servicio") {
+    return false;
+  }
+
+  if (table.capacity < reservation.partySize) {
+    return false;
+  }
+
+  const candidateWindow = getReservationWindow(reservation, durationMinutes);
+
+  if (!candidateWindow) {
+    return false;
+  }
+
+  const currentReservationBlocks = reservations.some(
+    (currentReservation) =>
+      currentReservation.id === reservation.id &&
+      currentReservation.tableName === table.name &&
+      isBlockingReservationStatus(currentReservation.status)
+  );
+
+  const blockingReservations = reservations.filter(
+    (currentReservation) =>
+      currentReservation.id !== reservation.id &&
+      currentReservation.tableName === table.name &&
+      isBlockingReservationStatus(currentReservation.status)
+  );
+
+  if (table.status !== "Libre" && blockingReservations.length === 0 && !currentReservationBlocks) {
+    return false;
+  }
+
+  return !blockingReservations.some((currentReservation) => {
+    const currentWindow = getReservationWindow(currentReservation, durationMinutes);
+
+    if (!currentWindow) {
+      return false;
+    }
+
+    return windowsOverlap(candidateWindow, currentWindow);
+  });
+}
+
+function resolveReservationTableAssignment({
+  reservation,
+  reservations,
+  tables,
+  durationMinutes,
+}: {
+  reservation: Pick<
+    RestaurantReservation,
+    "id" | "date" | "time" | "partySize" | "tableName"
+  >;
+  reservations: RestaurantReservation[];
+  tables: RestaurantTable[];
+  durationMinutes: number;
+}) {
+  const requestedTableName = normalizeTableName(reservation.tableName);
+  const sortableTables = [...tables].sort(
+    (left, right) => left.capacity - right.capacity || left.name.localeCompare(right.name)
+  );
+
+  const requestedTable = requestedTableName
+    ? tables.find((table) => table.name === requestedTableName) ?? null
+    : null;
+  const requestedTableIsValid =
+    requestedTable !== null &&
+    canAssignTableToReservation(requestedTable, reservation, reservations, durationMinutes);
+
+  if (requestedTableIsValid) {
+    return {
+      tableName: requestedTableName,
+      warning: null,
+    };
+  }
+
+  const nextAvailableTable = sortableTables.find((table) =>
+    canAssignTableToReservation(table, reservation, reservations, durationMinutes)
+  );
+
+  if (nextAvailableTable) {
+    return {
+      tableName: nextAvailableTable.name,
+      warning: null,
+    };
+  }
+
+  return {
+    tableName: "",
+    warning:
+      "No hay mesa disponible automaticamente para ese horario. Podes asignarla manualmente.",
+  };
+}
+
 function buildCustomerFromReservation(
   reservation: RestaurantReservation
 ): Customer {
@@ -164,37 +326,10 @@ function buildGuestName(reservation: RestaurantReservation) {
   return `${reservation.firstName} ${reservation.lastName}`.trim();
 }
 
-function findTableIdByName(tableName: string) {
-  return restaurantTables.find((table) => table.name === tableName)?.id ?? null;
-}
-
 function deriveStatusFromReservation(status: ReservationStatus): TableOverrideStatus {
   if (status === "Confirmada") return "Reservada";
   if (status === "Ocupada") return "Ocupada";
   return "Libre";
-}
-
-function deriveManualStatusFromReservation(status: ReservationStatus): TableOverrideStatus {
-  if (activeReservationStatuses.has(status)) {
-    return deriveStatusFromReservation(status);
-  }
-
-  return "Libre";
-}
-
-function syncTableOverrideForReservation(
-  tableId: string | null,
-  nextStatus: ReservationStatus,
-  setTableOverrides: React.Dispatch<React.SetStateAction<Record<string, TableOverrideStatus>>>
-) {
-  if (!tableId) {
-    return;
-  }
-
-  setTableOverrides((current) => ({
-    ...current,
-    [tableId]: deriveManualStatusFromReservation(nextStatus),
-  }));
 }
 
 function preserveConsumptionItems(
@@ -427,42 +562,52 @@ export function RestaurantFlowProvider({
     });
   }, [getActiveReservationForTable, tableOverrides]);
 
-  const saveReservation = React.useCallback((reservation: RestaurantReservation) => {
-    const tableId = findTableIdByName(reservation.tableName);
-
-    syncCustomerProfileForReservation(reservation);
-
-    setReservations((current) => {
-      const exists = current.some((item) => item.id === reservation.id);
-
-      if (exists) {
-        return current.map((item) =>
-          item.id === reservation.id
-            ? {
-                ...reservation,
-                occupiedMinutesElapsed:
-                  reservation.status === "Ocupada"
-                    ? item.occupiedMinutesElapsed ?? 0
-                    : undefined,
-                consumptionItems: preserveConsumptionItems(reservation, item),
-              }
-            : item
-        );
-      }
-
-      return [
-        {
-          ...reservation,
-          occupiedMinutesElapsed:
-            reservation.status === "Ocupada" ? 0 : undefined,
-          consumptionItems: reservation.consumptionItems ?? [],
+  const saveReservation = React.useCallback(
+    (reservation: RestaurantReservation): ReservationMutationResult => {
+      const currentReservation = reservations.find((item) => item.id === reservation.id);
+      const resolvedTable = resolveReservationTableAssignment({
+        reservation: {
+          id: reservation.id,
+          date: reservation.date,
+          time: reservation.time,
+          partySize: reservation.partySize,
+          tableName: reservation.tableName,
         },
-        ...current,
-      ];
-    });
+        reservations,
+        tables,
+        durationMinutes: standardReservationDurationMinutes,
+      });
+      const nextReservation: RestaurantReservation = {
+        ...reservation,
+        tableName: resolvedTable.tableName,
+        occupiedMinutesElapsed:
+          reservation.status === "Ocupada"
+            ? currentReservation?.occupiedMinutesElapsed ?? 0
+            : undefined,
+        consumptionItems: preserveConsumptionItems(reservation, currentReservation),
+      };
 
-    syncTableOverrideForReservation(tableId, reservation.status, setTableOverrides);
-  }, [syncCustomerProfileForReservation]);
+      syncCustomerProfileForReservation(nextReservation);
+
+      setReservations((current) => {
+        const exists = current.some((item) => item.id === reservation.id);
+
+        if (exists) {
+          return current.map((item) =>
+            item.id === reservation.id ? nextReservation : item
+          );
+        }
+
+        return [nextReservation, ...current];
+      });
+
+      return {
+        reservation: nextReservation,
+        warning: resolvedTable.warning,
+      };
+    },
+    [reservations, standardReservationDurationMinutes, syncCustomerProfileForReservation, tables]
+  );
 
   const saveMenuItem = React.useCallback((menuItem: MenuItem) => {
     setMenuItems((current) => {
@@ -482,29 +627,63 @@ export function RestaurantFlowProvider({
 
   const updateReservationStatus = React.useCallback(
     (
-    reservationId: string,
-    nextStatus: ReservationStatus
-  ) => {
-    const currentReservation = reservations.find((reservation) => reservation.id === reservationId);
-    const tableId = currentReservation
-      ? findTableIdByName(currentReservation.tableName)
-      : null;
+      reservationId: string,
+      nextStatus: ReservationStatus
+    ): ReservationMutationResult => {
+      const currentReservation = reservations.find(
+        (reservation) => reservation.id === reservationId
+      );
 
-    syncTableOverrideForReservation(tableId, nextStatus, setTableOverrides);
+      if (!currentReservation) {
+        return {
+          reservation: null,
+          warning: "No encontramos la reserva para actualizar.",
+        };
+      }
 
-    setReservations((current) =>
-      current.map((reservation) =>
-        reservation.id === reservationId
-          ? {
-              ...reservation,
-              status: nextStatus,
-              occupiedMinutesElapsed: nextStatus === "Ocupada" ? 0 : undefined,
-              consumptionItems: reservation.consumptionItems ?? [],
-            }
-            : reservation
-      )
-    );
-  }, [reservations]);
+      let nextReservation = {
+        ...currentReservation,
+        status: nextStatus,
+        occupiedMinutesElapsed: nextStatus === "Ocupada" ? 0 : undefined,
+        consumptionItems: currentReservation.consumptionItems ?? [],
+      } satisfies RestaurantReservation;
+
+      let warning: string | null = null;
+
+      if (isBlockingReservationStatus(nextStatus)) {
+        const resolvedTable = resolveReservationTableAssignment({
+          reservation: {
+            id: currentReservation.id,
+            date: currentReservation.date,
+            time: currentReservation.time,
+            partySize: currentReservation.partySize,
+            tableName: currentReservation.tableName,
+          },
+          reservations,
+          tables,
+          durationMinutes: standardReservationDurationMinutes,
+        });
+
+        nextReservation = {
+          ...nextReservation,
+          tableName: resolvedTable.tableName,
+        };
+        warning = resolvedTable.warning;
+      }
+
+      setReservations((current) =>
+        current.map((reservation) =>
+          reservation.id === reservationId ? nextReservation : reservation
+        )
+      );
+
+      return {
+        reservation: nextReservation,
+        warning,
+      };
+    },
+    [reservations, standardReservationDurationMinutes, tables]
+  );
 
   const saveConsumptionItems = React.useCallback(
     (reservationId: string, items: TableConsumptionItem[]) => {

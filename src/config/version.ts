@@ -1,10 +1,13 @@
-export const APP_VERSION = "v 1.5.0";
+export const APP_VERSION = "v 1.5.1";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Asignacion automatica de mesa en reservas nuevas y editadas",
+      "Cumpleanos convertido a input de fecha en reservas y CRM",
+      "Aviso visual cuando no hay mesa disponible automaticamente",
       "CRM funcional conectado a reservas y consumos",
       "Ficha de cliente con historial y edicion",
       "Clientes auto creados o actualizados desde reservas",

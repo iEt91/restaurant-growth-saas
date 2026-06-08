@@ -53,6 +53,10 @@ function formatDateLabel(date: string) {
   return `${day}/${month}/${year}`;
 }
 
+function toDateInputValue(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
 function reservationHistoryKey(entry: CustomerReservationHistoryItem) {
   return `${entry.date}T${entry.time}`;
 }
@@ -82,7 +86,7 @@ function buildFormState(customer: Customer): CustomerFormState {
     lastName: customer.lastName ?? splitName.lastName,
     phone: customer.phone,
     email: customer.email,
-    birthday: customer.birthday,
+    birthday: toDateInputValue(customer.birthday),
     preferences: customer.preferences.join(", "),
     allergies: customer.allergies.join(", "),
     notes: customer.notes ?? "",
@@ -288,7 +292,7 @@ export function CustomersPanel() {
       lastName: form.lastName.trim(),
       phone: form.phone.trim(),
       email: form.email.trim(),
-      birthday: form.birthday.trim(),
+      birthday: form.birthday.trim() || selectedCustomer.birthday,
       preferences: splitCommaList(form.preferences),
       allergies: splitCommaList(form.allergies),
       notes: form.notes.trim(),
@@ -654,9 +658,9 @@ export function CustomersPanel() {
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">Cumpleaños</p>
                     <Input
+                      type="date"
                       value={form.birthday}
                       onChange={(event) => updateFormField("birthday", event.target.value)}
-                      placeholder="18 de julio"
                     />
                   </div>
                   <div className="space-y-2">

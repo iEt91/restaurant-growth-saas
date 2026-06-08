@@ -92,6 +92,7 @@ type ReservationDialogState = {
   reservationId: string | null;
   form: ReservationFormState;
   error: string | null;
+  notice: string | null;
 };
 
 const statusStyles: Record<ReservationActionStatus, string> = {
@@ -119,6 +120,20 @@ const emptyFormState: ReservationFormState = {
   status: "Pendiente",
   tableName: "",
 };
+
+function toDateInputValue(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+function normalizeTableInputValue(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed || trimmed === "—" || trimmed === "â€”") {
+    return "";
+  }
+
+  return trimmed;
+}
 
 function buildGuestName(reservation: Pick<ReservationRow, "firstName" | "lastName">) {
   return `${reservation.firstName} ${reservation.lastName}`.trim();
@@ -204,7 +219,9 @@ export default function ReservationsPage() {
     reservationId: null,
     form: emptyFormState,
     error: null,
+    notice: null,
   });
+  const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
   const nextIdRef = React.useRef(reservations.length + 1);
 
   const filterCounts = React.useMemo(() => {
@@ -243,6 +260,7 @@ export default function ReservationsPage() {
       reservationId: null,
       form: emptyFormState,
       error: null,
+      notice: null,
     });
   }
 
@@ -253,6 +271,7 @@ export default function ReservationsPage() {
       reservationId: reservation.id,
       form: getFormFromReservation(reservation),
       error: null,
+      notice: null,
     });
   }
 
@@ -263,6 +282,7 @@ export default function ReservationsPage() {
       reservationId: reservation.id,
       form: getFormFromReservation(reservation),
       error: null,
+      notice: null,
     });
   }
 
@@ -271,6 +291,7 @@ export default function ReservationsPage() {
       ...current,
       open: false,
       error: null,
+      notice: null,
     }));
   }
 
@@ -282,6 +303,7 @@ export default function ReservationsPage() {
       ...current,
       form: { ...current.form, [field]: value },
       error: null,
+      notice: null,
     }));
   }
 
@@ -289,7 +311,7 @@ export default function ReservationsPage() {
     reservationId: string,
     nextStatus: ReservationActionStatus
   ) {
-    syncReservationStatus(reservationId, nextStatus);
+    return syncReservationStatus(reservationId, nextStatus);
   }
 
   const getReservationById = React.useCallback(
@@ -301,6 +323,18 @@ export default function ReservationsPage() {
   );
 
   const activeReservation = getReservationById(dialog.reservationId);
+
+  React.useEffect(() => {
+    if (!feedbackMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setFeedbackMessage(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [feedbackMessage]);
 
   React.useEffect(() => {
     if (!focusedReservationId) {
@@ -334,6 +368,7 @@ export default function ReservationsPage() {
       return;
     }
 
+    const currentReservation = getReservationById(dialog.reservationId);
     const nextReservation: ReservationRow = {
       id:
         dialog.mode === "edit" && dialog.reservationId
@@ -343,7 +378,9 @@ export default function ReservationsPage() {
       lastName: dialog.form.lastName.trim(),
       phone: dialog.form.phone.trim(),
       email: dialog.form.email.trim(),
-      birthday: dialog.form.birthday.trim(),
+      birthday:
+        dialog.form.birthday.trim() ||
+        (dialog.mode === "edit" ? currentReservation?.birthday ?? "" : ""),
       allergies: dialog.form.allergies.trim(),
       preferences: dialog.form.preferences.trim(),
       comments: dialog.form.comments.trim(),
@@ -352,10 +389,11 @@ export default function ReservationsPage() {
       partySize: Number(dialog.form.partySize),
       channel: dialog.form.channel,
       status: dialog.form.status,
-      tableName: dialog.form.tableName.trim() || "—",
+      tableName: normalizeTableInputValue(dialog.form.tableName),
     };
 
-    saveReservation(nextReservation);
+    const result = saveReservation(nextReservation);
+    setFeedbackMessage(result.warning);
     // Futuro: registrar estas correcciones administrativas en audit_logs.
 
     closeDialog();
@@ -403,10 +441,23 @@ export default function ReservationsPage() {
                 : "h-9 rounded-xl px-3"
             }
             onClick={() => {
-              updateReservationStatus(reservationId, action.nextStatus);
+              const result = updateReservationStatus(reservationId, action.nextStatus);
+
+              if (result.warning) {
+                setDialog((current) => ({
+                  ...current,
+                  notice: result.warning,
+                }));
+              }
+
               setDialog((current) => ({
                 ...current,
-                form: { ...current.form, status: action.nextStatus },
+                form: {
+                  ...current.form,
+                  status: action.nextStatus,
+                  tableName: result.reservation?.tableName ?? current.form.tableName,
+                },
+                notice: result.warning ?? null,
               }));
             }}
           >
@@ -443,6 +494,12 @@ export default function ReservationsPage() {
           </div>
         </CardHeader>
         <CardContent className="pt-4">
+          {feedbackMessage ? (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {feedbackMessage}
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
             {reservationStatuses.map((status) => {
               const isActive = selectedFilter === status;
@@ -732,6 +789,11 @@ export default function ReservationsPage() {
                         </p>
                         <p className="mt-1 text-slate-700">{dialog.form.preferences || '—'}</p>
                       </div>
+                      {dialog.notice ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          {dialog.notice}
+                        </div>
+                      ) : null}
                     </CardContent>
                   </Card>
 
@@ -940,11 +1002,11 @@ export default function ReservationsPage() {
                     <Label htmlFor="birthday">Cumpleaños</Label>
                     <Input
                       id="birthday"
-                      value={dialog.form.birthday}
+                      type="date"
+                      value={toDateInputValue(dialog.form.birthday)}
                       onChange={(event) =>
                         updateFormField("birthday", event.target.value)
                       }
-                      placeholder="18 de julio"
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
