@@ -15,6 +15,7 @@ import {
 import { RestaurantConsumptionModal } from "@/components/restaurant-consumption-modal";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import type { ReservationStatus, RestaurantTable } from "@/types/domain";
+import { formatDisplayDate, isToday } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 
 const tableStateClasses: Record<RestaurantTable["status"], string> = {
@@ -66,6 +67,7 @@ export default function FloorPlanPage() {
   const [detailTableId, setDetailTableId] = React.useState<string | null>(null);
   const [isTableDetailOpen, setIsTableDetailOpen] = React.useState(false);
   const [isConsumptionOpen, setIsConsumptionOpen] = React.useState(false);
+  const [actionNotice, setActionNotice] = React.useState<string | null>(null);
 
   const selectedTable = tables.find((table) => table.id === selectedTableId) ?? null;
   const selectedTableReservation = selectedTable
@@ -73,6 +75,13 @@ export default function FloorPlanPage() {
     : null;
   const selectedTableReservationId = selectedTableReservation?.id ?? null;
   const selectedTableReservationStatus = selectedTableReservation?.status ?? null;
+  const canAddConsumption =
+    selectedTable?.status === "Ocupada" &&
+    selectedTableReservation?.status === "Ocupada" &&
+    isToday(selectedTableReservation.date);
+  const consumptionDisabledMessage = selectedTableReservation
+    ? "No podés cargar consumos en una reserva futura. La mesa debe estar ocupada el día de la reserva."
+    : "Solo se puede cargar consumo en mesas ocupadas.";
   const activeConsumptionItems = React.useMemo(
     () => getConsumptionItemsForReservation(selectedTableReservationId),
     [getConsumptionItemsForReservation, selectedTableReservationId]
@@ -130,12 +139,13 @@ export default function FloorPlanPage() {
   function handleOpenConsumption() {
     if (
       !selectedTable ||
-      selectedTable.status !== "Ocupada" ||
-      !selectedTableReservation
+      !canAddConsumption
     ) {
+      setActionNotice(consumptionDisabledMessage);
       return;
     }
 
+    setActionNotice(null);
     setIsConsumptionOpen(true);
   }
 
@@ -144,7 +154,14 @@ export default function FloorPlanPage() {
       return;
     }
 
-    updateReservationStatus(selectedTableReservation.id, nextStatus);
+    const result = updateReservationStatus(selectedTableReservation.id, nextStatus);
+
+    if (result.error || result.warning) {
+      setActionNotice(result.error ?? result.warning);
+      return;
+    }
+
+    setActionNotice(null);
   }
 
   function handleSelectTable(tableId: string) {
@@ -167,6 +184,12 @@ export default function FloorPlanPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4 pt-4">
+          {actionNotice ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {actionNotice}
+            </div>
+          ) : null}
+
           <Button
             variant="outline"
             className="w-full justify-start rounded-2xl"
@@ -241,6 +264,8 @@ export default function FloorPlanPage() {
                       variant="outline"
                       className="w-full justify-start rounded-2xl"
                       onClick={handleOpenConsumption}
+                      disabled={!canAddConsumption}
+                      title={!canAddConsumption ? consumptionDisabledMessage : undefined}
                     >
                       Agregar consumo
                     </Button>
@@ -581,7 +606,7 @@ export default function FloorPlanPage() {
                         "Cliente asociado",
                         `${detailReservation.firstName} ${detailReservation.lastName}`,
                       ],
-                      ["Reserva asociada", detailReservation.date],
+                      ["Reserva asociada", formatDisplayDate(detailReservation.date)],
                       ["Hora", detailReservation.time],
                       ["Personas", String(detailReservation.partySize)],
                       ["Estado de reserva", detailReservation.status],
@@ -689,10 +714,10 @@ export default function FloorPlanPage() {
                   variant="outline"
                   className="rounded-2xl"
                   onClick={handleOpenConsumption}
-                  disabled={detailTable.status !== "Ocupada" || !detailReservation}
+                  disabled={!canAddConsumption}
                   title={
-                    detailTable.status !== "Ocupada"
-                      ? "Solo se puede cargar consumo en mesas ocupadas."
+                    !canAddConsumption
+                      ? consumptionDisabledMessage
                       : undefined
                   }
                 >
@@ -705,15 +730,25 @@ export default function FloorPlanPage() {
                     if (!detailTable) return;
                     updateTableStatus(detailTable.id, "Libre");
                   }}
+                  disabled={Boolean(detailReservation)}
+                  title={detailReservation ? "Usá el flujo de reserva para liberar esta mesa." : undefined}
                 >
                   Cambiar a libre
                 </Button>
                 <Button
                   className="rounded-2xl"
                   onClick={() => {
-                    if (!detailTable) return;
-                    updateTableStatus(detailTable.id, "Ocupada");
+                    if (!detailReservation) return;
+                    const result = updateReservationStatus(detailReservation.id, "Completada");
+                    if (result.error || result.warning) {
+                      setActionNotice(result.error ?? result.warning);
+                    }
                   }}
+                  disabled={
+                    !detailReservation ||
+                    detailReservation.status !== "Ocupada" ||
+                    !isToday(detailReservation.date)
+                  }
                 >
                   Cerrar mesa
                 </Button>

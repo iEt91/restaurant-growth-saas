@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
+import { formatDisplayDate } from "@/lib/date-utils";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const sections = [
@@ -456,7 +457,7 @@ export default function SettingsPage() {
               </p>
             </div>
             <Badge variant="outline" className="w-fit">
-              Ultima actualizacion: {VERSION_HISTORY[0].date}
+              Ultima actualizacion: {formatDisplayDate(VERSION_HISTORY[0].date)}
             </Badge>
           </div>
         </CardContent>

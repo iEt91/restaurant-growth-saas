@@ -1,10 +1,14 @@
-export const APP_VERSION = "v 1.7.3";
+export const APP_VERSION = "v 1.7.4";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Normalizacion global de fechas y bloqueo operativo de reservas futuras",
+      "Reportes abre por defecto en Hoy con comparaciones yyyy-mm-dd",
+      "Reservas futuras no pueden ocuparse, completarse ni cargar consumos",
+      "Plano de mesas representa solo la operacion del dia actual",
       "Auditoria de reportes con normalizacion central de fechas",
       "Ventas hoy, semana, mes y personalizado usan la misma fuente de calculo",
       "Semana comercial calculada de lunes a domingo sobre fecha actual",

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
+import { formatDisplayDate } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import type { Customer, CustomerConsumptionHistoryItem, CustomerReservationHistoryItem } from "@/types/domain";
 
@@ -44,13 +45,7 @@ function splitCommaList(value: string) {
 }
 
 function formatDateLabel(date: string) {
-  const [year, month, day] = date.split("-");
-
-  if (!year || !month || !day) {
-    return date;
-  }
-
-  return `${day}/${month}/${year}`;
+  return formatDisplayDate(date);
 }
 
 function toDateInputValue(value: string) {
@@ -422,7 +417,12 @@ export function CustomersPanel() {
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {metricCard({ label: "Cumpleaños", value: selectedCustomer.birthday || "Sin dato" })}
+                    {metricCard({
+                      label: "Cumpleaños",
+                      value: selectedCustomer.birthday
+                        ? formatDateLabel(selectedCustomer.birthday)
+                        : "Sin dato",
+                    })}
                     {metricCard({
                       label: "Preferencias",
                       value: String(selectedCustomer.preferences.length),

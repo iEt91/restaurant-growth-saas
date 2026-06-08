@@ -16,6 +16,14 @@ import {
   type RestaurantReservation,
 } from "@/data/restaurant-ops";
 import { customers as seededCustomers, menuItems as seededMenuItems } from "@/data/mock";
+import {
+  formatDisplayDate,
+  getTodayDateKey,
+  isFutureDate,
+  isPastDate,
+  isToday,
+  normalizeDateKey,
+} from "@/lib/date-utils";
 
 type TableOverrideStatus = RestaurantTable["status"];
 
@@ -82,6 +90,16 @@ const RestaurantFlowContext = React.createContext<RestaurantFlowContextValue | n
 );
 
 const activeReservationStatuses = new Set<ReservationStatus>(["Confirmada", "Ocupada"]);
+const terminalReservationStatuses = new Set<ReservationStatus>([
+  "Completada",
+  "Cancelada",
+  "No-show",
+]);
+
+const FUTURE_OCCUPY_ERROR =
+  "No podés ocupar una reserva futura. Esta acción estará disponible el día de la reserva.";
+const FUTURE_COMPLETE_ERROR = "No podés completar una reserva futura.";
+const PAST_OCCUPY_ERROR = "No podés ocupar una reserva de una fecha pasada.";
 
 function normalizeContactValue(value: string) {
   return value.trim().toLowerCase();
@@ -120,13 +138,14 @@ function parseReservationWindow(
   durationMinutes: number
 ) {
   const start = parseTimeToMinutes(reservation.time);
+  const date = normalizeDateKey(reservation.date);
 
-  if (start === null) {
+  if (start === null || !date) {
     return null;
   }
 
   return {
-    date: reservation.date,
+    date,
     start,
     end: start + durationMinutes,
   };
@@ -180,7 +199,14 @@ function getReservationTableAvailability(
       isBlockingReservationStatus(currentReservation.status)
   );
 
-  if (table.status !== "Libre" && blockingReservations.length === 0 && !currentReservationOwnsTable) {
+  const isCandidateForToday = isToday(candidateWindow.date);
+
+  if (
+    isCandidateForToday &&
+    table.status !== "Libre" &&
+    blockingReservations.length === 0 &&
+    !currentReservationOwnsTable
+  ) {
     return {
       available: false,
       reason:
@@ -302,13 +328,7 @@ function resolveReservationTableDecision({
 }
 
 function buildReservationDateLabel(date: string) {
-  const [year, month, day] = date.split("-");
-
-  if (!year || !month || !day) {
-    return date;
-  }
-
-  return `${day}/${month}/${year}`;
+  return formatDisplayDate(date);
 }
 
 function parseTimeToMinutes(time: string) {
@@ -346,6 +366,33 @@ function normalizeTableName(tableName: string) {
 
 function isBlockingReservationStatus(status: ReservationStatus) {
   return status === "Confirmada" || status === "Ocupada";
+}
+
+function isOperationalReservation(reservation: RestaurantReservation, todayKey: string) {
+  return activeReservationStatuses.has(reservation.status) && isToday(reservation.date, todayKey);
+}
+
+function getReservationStatusTransitionError(
+  reservation: RestaurantReservation,
+  nextStatus: ReservationStatus,
+  todayKey: string
+) {
+  const reservationIsFuture = isFutureDate(reservation.date, todayKey);
+  const reservationIsPast = isPastDate(reservation.date, todayKey);
+
+  if (reservationIsFuture) {
+    if (nextStatus === "Ocupada") return FUTURE_OCCUPY_ERROR;
+    if (nextStatus === "Completada") return FUTURE_COMPLETE_ERROR;
+    if (nextStatus === "No-show") {
+      return "No podés marcar no-show en una reserva futura.";
+    }
+  }
+
+  if (reservationIsPast && nextStatus === "Ocupada") {
+    return PAST_OCCUPY_ERROR;
+  }
+
+  return null;
 }
 
 function buildCustomerFromReservation(
@@ -508,12 +555,13 @@ export function RestaurantFlowProvider({
   const [focusedReservationId, setFocusedReservationId] = React.useState<string | null>(
     null
   );
+  const todayDateKey = getTodayDateKey();
 
   React.useEffect(() => {
     const intervalId = window.setInterval(() => {
       setReservations((current) =>
         current.map((reservation) =>
-          reservation.status === "Ocupada"
+          reservation.status === "Ocupada" && isToday(reservation.date)
             ? {
                 ...reservation,
                 occupiedMinutesElapsed: (reservation.occupiedMinutesElapsed ?? 0) + 1,
@@ -548,9 +596,9 @@ export function RestaurantFlowProvider({
       reservations.find(
         (reservation) =>
           reservation.tableName === tableName &&
-          activeReservationStatuses.has(reservation.status)
+          isOperationalReservation(reservation, todayDateKey)
       ) ?? null,
-    [reservations]
+    [reservations, todayDateKey]
   );
 
   const getConsumptionItemsForReservation = React.useCallback(
@@ -659,7 +707,7 @@ export function RestaurantFlowProvider({
       const hasActiveReservation = reservations.some(
         (reservation) =>
           reservation.tableName === table.name &&
-          activeReservationStatuses.has(reservation.status)
+          isOperationalReservation(reservation, todayDateKey)
       );
       const overrideStatus = nextOverrides[table.id];
 
@@ -672,7 +720,7 @@ export function RestaurantFlowProvider({
     }
 
     return nextOverrides;
-  }, [reservations, tableOverrides]);
+  }, [reservations, tableOverrides, todayDateKey]);
 
   const tables = React.useMemo(() => {
     return restaurantTables.map((table) => {
@@ -696,18 +744,41 @@ export function RestaurantFlowProvider({
   const saveReservation = React.useCallback(
     (reservation: RestaurantReservation): ReservationMutationResult => {
       const currentReservation = reservations.find((item) => item.id === reservation.id);
-      const decision = resolveReservationTableDecision({
-        reservation: {
-          id: reservation.id,
-          date: reservation.date,
-          time: reservation.time,
-          partySize: reservation.partySize,
-          tableName: reservation.tableName,
-        },
-        reservations,
-        tables,
-        durationMinutes: standardReservationDurationMinutes,
-      });
+      const policyError = getReservationStatusTransitionError(
+        reservation,
+        reservation.status,
+        todayDateKey
+      );
+
+      if (policyError) {
+        return {
+          reservation: null,
+          warning: null,
+          error: policyError,
+        };
+      }
+
+      const shouldResolveTable =
+        reservation.status === "Pendiente" ||
+        isBlockingReservationStatus(reservation.status);
+      const decision = shouldResolveTable
+        ? resolveReservationTableDecision({
+            reservation: {
+              id: reservation.id,
+              date: reservation.date,
+              time: reservation.time,
+              partySize: reservation.partySize,
+              tableName: reservation.tableName,
+            },
+            reservations,
+            tables,
+            durationMinutes: standardReservationDurationMinutes,
+          })
+        : {
+            tableName: normalizeTableName(reservation.tableName),
+            warning: null,
+            error: null,
+          };
 
       if (decision.error) {
         return {
@@ -757,7 +828,8 @@ export function RestaurantFlowProvider({
         reservation: nextReservation,
         warning:
           decision.warning ??
-          (normalizeTableName(reservation.tableName)
+          (normalizeTableName(reservation.tableName) ||
+          terminalReservationStatuses.has(reservation.status)
             ? null
             : decision.tableName
               ? "Mesa asignada automáticamente."
@@ -765,7 +837,13 @@ export function RestaurantFlowProvider({
         error: null,
       };
     },
-    [reservations, standardReservationDurationMinutes, syncCustomerProfileForReservation, tables]
+    [
+      reservations,
+      standardReservationDurationMinutes,
+      syncCustomerProfileForReservation,
+      tables,
+      todayDateKey,
+    ]
   );
 
   const saveMenuItem = React.useCallback((menuItem: MenuItem) => {
@@ -798,6 +876,20 @@ export function RestaurantFlowProvider({
           reservation: null,
           warning: "No encontramos la reserva para actualizar.",
           error: "No encontramos la reserva para actualizar.",
+        };
+      }
+
+      const policyError = getReservationStatusTransitionError(
+        currentReservation,
+        nextStatus,
+        todayDateKey
+      );
+
+      if (policyError) {
+        return {
+          reservation: null,
+          warning: null,
+          error: policyError,
         };
       }
 
@@ -859,7 +951,7 @@ export function RestaurantFlowProvider({
         error: null,
       };
     },
-    [reservations, standardReservationDurationMinutes, tables]
+    [reservations, standardReservationDurationMinutes, tables, todayDateKey]
   );
 
   const getReservationTableOptions = React.useCallback(
@@ -878,17 +970,23 @@ export function RestaurantFlowProvider({
       const groupedItems = groupConsumptionItems(items);
 
       setReservations((current) =>
-        current.map((reservation) =>
-          reservation.id === reservationId
-            ? {
-                ...reservation,
-                consumptionItems: groupedItems,
-              }
-            : reservation
-        )
+        current.map((reservation) => {
+          if (reservation.id !== reservationId) {
+            return reservation;
+          }
+
+          if (reservation.status !== "Ocupada" || !isToday(reservation.date, todayDateKey)) {
+            return reservation;
+          }
+
+          return {
+            ...reservation,
+            consumptionItems: groupedItems,
+          };
+        })
       );
     },
-    []
+    [todayDateKey]
   );
 
   const setMenuItemActive = React.useCallback((menuItemId: string, active: boolean) => {

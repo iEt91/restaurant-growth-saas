@@ -18,6 +18,14 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import type { ReservationChannel as RestaurantReservationChannel } from "@/data/restaurant-ops";
 import {
+  formatDisplayDate,
+  getTodayDateKey,
+  isFutureDate,
+  isPastDate,
+  isToday,
+  normalizeDateKey,
+} from "@/lib/date-utils";
+import {
   CalendarDays,
   CheckCircle2,
   CircleSlash2,
@@ -121,6 +129,24 @@ const emptyFormState: ReservationFormState = {
   tableName: "",
 };
 
+function subscribeToCurrentDate(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const timeoutId = window.setTimeout(onStoreChange, 0);
+
+  return () => window.clearTimeout(timeoutId);
+}
+
+function useCurrentDateKey() {
+  return React.useSyncExternalStore(
+    subscribeToCurrentDate,
+    () => getTodayDateKey(),
+    () => null
+  );
+}
+
 function toDateInputValue(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
 }
@@ -182,27 +208,6 @@ function validateReservationForm(form: ReservationFormState) {
   return null;
 }
 
-const reservationFlowActions: Record<
-  ReservationActionStatus,
-  Array<{ label: string; nextStatus: ReservationActionStatus; variant: "default" | "outline" | "secondary" }>
-> = {
-  Pendiente: [
-    { label: "Confirmar", nextStatus: "Confirmada", variant: "default" },
-    { label: "Cancelar", nextStatus: "Cancelada", variant: "outline" },
-  ],
-  Confirmada: [
-    { label: "Marcar ocupada", nextStatus: "Ocupada", variant: "secondary" },
-    { label: "Cancelar", nextStatus: "Cancelada", variant: "outline" },
-    { label: "No-show", nextStatus: "No-show", variant: "outline" },
-  ],
-  Ocupada: [
-    { label: "Marcar completada", nextStatus: "Completada", variant: "default" },
-  ],
-  Completada: [],
-  Cancelada: [],
-  "No-show": [],
-};
-
 export default function ReservationsPage() {
   const {
     reservations,
@@ -213,6 +218,9 @@ export default function ReservationsPage() {
     focusedReservationId,
     clearFocusedReservation,
   } = useRestaurantFlow();
+  const currentDateKey = useCurrentDateKey();
+  const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
+  const effectiveSelectedDate = selectedDate ?? currentDateKey ?? "";
   const [selectedFilter, setSelectedFilter] =
     React.useState<ReservationStatus>("Todas");
   const [dialog, setDialog] = React.useState<ReservationDialogState>({
@@ -226,6 +234,16 @@ export default function ReservationsPage() {
   const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
   const nextIdRef = React.useRef(reservations.length + 1);
 
+  const reservationsForSelectedDate = React.useMemo(
+    () =>
+      effectiveSelectedDate
+        ? reservations.filter((reservation) =>
+            isToday(reservation.date, effectiveSelectedDate)
+          )
+        : [],
+    [effectiveSelectedDate, reservations]
+  );
+
   const filterCounts = React.useMemo(() => {
     const counts = reservationStatuses.reduce(
       (acc, status) => {
@@ -233,7 +251,7 @@ export default function ReservationsPage() {
           return acc;
         }
 
-        acc[status] = reservations.filter(
+        acc[status] = reservationsForSelectedDate.filter(
           (reservation) => reservation.status === status
         ).length;
         return acc;
@@ -242,25 +260,28 @@ export default function ReservationsPage() {
     );
 
     return {
-      Todas: reservations.length,
+      Todas: reservationsForSelectedDate.length,
       ...counts,
     };
-  }, [reservations]);
+  }, [reservationsForSelectedDate]);
 
   const visibleReservations = React.useMemo(() => {
     if (selectedFilter === "Todas") {
-      return reservations;
+      return reservationsForSelectedDate;
     }
 
-    return reservations.filter((reservation) => reservation.status === selectedFilter);
-  }, [reservations, selectedFilter]);
+    return reservationsForSelectedDate.filter((reservation) => reservation.status === selectedFilter);
+  }, [reservationsForSelectedDate, selectedFilter]);
 
   function openCreateDialog() {
     setDialog({
       open: true,
       mode: "create",
       reservationId: null,
-      form: emptyFormState,
+      form: {
+        ...emptyFormState,
+        date: effectiveSelectedDate || getTodayDateKey(),
+      },
       error: null,
       notice: null,
     });
@@ -509,11 +530,95 @@ export default function ReservationsPage() {
         ? "Actualizá la reserva sin salir de la pantalla."
         : "Revisá la información completa de la reserva.";
 
+  function getTemporalBadgeLabel(date: string) {
+    if (isFutureDate(date, currentDateKey)) return "Reserva futura";
+    if (isPastDate(date, currentDateKey)) return "Reserva pasada";
+    return null;
+  }
+
+  function getFlowActionsForReservation(reservation: ReservationRow) {
+    const isFutureReservation = isFutureDate(reservation.date, currentDateKey);
+    const isPastReservation = isPastDate(reservation.date, currentDateKey);
+
+    if (reservation.status === "Pendiente") {
+      return [
+        { label: "Confirmar", nextStatus: "Confirmada" as const, variant: "default" as const },
+        { label: "Cancelar", nextStatus: "Cancelada" as const, variant: "outline" as const },
+        ...(isPastReservation
+          ? [{ label: "No-show", nextStatus: "No-show" as const, variant: "outline" as const }]
+          : []),
+      ];
+    }
+
+    if (reservation.status === "Confirmada") {
+      return [
+        ...(isFutureReservation || isPastReservation
+          ? []
+          : [{ label: "Marcar ocupada", nextStatus: "Ocupada" as const, variant: "secondary" as const }]),
+        { label: "Cancelar", nextStatus: "Cancelada" as const, variant: "outline" as const },
+        ...(isFutureReservation
+          ? []
+          : [{ label: "No-show", nextStatus: "No-show" as const, variant: "outline" as const }]),
+      ];
+    }
+
+    if (reservation.status === "Ocupada") {
+      return isFutureReservation
+        ? []
+        : [{ label: "Marcar completada", nextStatus: "Completada" as const, variant: "default" as const }];
+    }
+
+    return [];
+  }
+
+  function getFlowButtonClassName(
+    nextStatus: ReservationActionStatus,
+    variant: "default" | "outline" | "secondary"
+  ) {
+    if (nextStatus === "Confirmada") {
+      return "h-9 rounded-xl bg-emerald-600 px-3 text-white hover:bg-emerald-700";
+    }
+
+    if (nextStatus === "Ocupada") {
+      return "h-9 rounded-xl bg-violet-600 px-3 text-white hover:bg-violet-700";
+    }
+
+    if (nextStatus === "Completada") {
+      return "h-9 rounded-xl bg-emerald-700 px-3 text-white hover:bg-emerald-800";
+    }
+
+    if (nextStatus === "Cancelada") {
+      return "h-9 rounded-xl border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100 hover:text-rose-800";
+    }
+
+    if (nextStatus === "No-show") {
+      return "h-9 rounded-xl border-slate-200 bg-slate-50 px-3 text-slate-700 hover:bg-slate-100 hover:text-slate-950";
+    }
+
+    return variant === "default" ? "h-9 rounded-xl px-3 text-white" : "h-9 rounded-xl px-3";
+  }
+
   function renderFlowActions(
     reservationStatus: ReservationActionStatus,
     reservationId: string
   ) {
-    const actions = reservationFlowActions[reservationStatus];
+    const actions = getFlowActionsForReservation({
+      id: reservationId,
+      firstName: dialog.form.firstName,
+      lastName: dialog.form.lastName,
+      phone: dialog.form.phone,
+      email: dialog.form.email,
+      birthday: dialog.form.birthday,
+      allergies: dialog.form.allergies,
+      preferences: dialog.form.preferences,
+      comments: dialog.form.comments,
+      date: dialog.form.date,
+      time: dialog.form.time,
+      partySize: Number(dialog.form.partySize) || 0,
+      channel: dialog.form.channel,
+      status: reservationStatus,
+      tableName: dialog.form.tableName,
+    });
 
     if (!actions.length) {
       return (
@@ -577,10 +682,20 @@ export default function ReservationsPage() {
               <SlidersHorizontal className="mr-2 h-4 w-4" />
               Filtros
             </Button>
-            <Button variant="outline" className="rounded-2xl">
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
               <CalendarDays className="mr-2 h-4 w-4" />
-              12 jun 2026
-            </Button>
+              <span className="font-medium">
+                {effectiveSelectedDate ? formatDisplayDate(effectiveSelectedDate) : "Hoy"}
+              </span>
+              <Input
+                type="date"
+                value={effectiveSelectedDate}
+                onChange={(event) =>
+                  setSelectedDate(normalizeDateKey(event.target.value) ?? getTodayDateKey())
+                }
+                className="h-8 w-[132px] rounded-xl border-slate-200 bg-slate-50 px-2 text-xs"
+              />
+            </div>
             <Button className="rounded-2xl" onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
               Nueva Reserva
@@ -642,12 +757,16 @@ export default function ReservationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {visibleReservations.map((reservation) => (
+                {visibleReservations.map((reservation) => {
+                  const flowActions = getFlowActionsForReservation(reservation);
+                  const temporalBadgeLabel = getTemporalBadgeLabel(reservation.date);
+
+                  return (
                   <tr key={reservation.id} className="text-sm text-slate-700">
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-950">
                       {reservation.time}
                       <div className="mt-1 text-xs text-slate-500">
-                        {reservation.date}
+                        {formatDisplayDate(reservation.date)}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -671,81 +790,40 @@ export default function ReservationsPage() {
                     <td className="px-4 py-3 text-center">{reservation.channel}</td>
                     <td className="px-4 py-3">
                       <div className="flex min-h-10 w-full flex-wrap items-center justify-center gap-2">
-                        {reservation.status === "Pendiente" ? (
-                          <>
-                            <Button
-                              size="sm"
-                              className="h-9 rounded-xl bg-emerald-600 px-3 text-white hover:bg-emerald-700"
-                              onClick={() =>
-                                applyReservationStatusChange(reservation.id, "Confirmada")
-                              }
-                            >
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              Confirmar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-9 rounded-xl border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
-                              onClick={() =>
-                                applyReservationStatusChange(reservation.id, "Cancelada")
-                              }
-                            >
-                              <CircleSlash2 className="mr-2 h-4 w-4" />
-                              Cancelar
-                            </Button>
-                          </>
+                        {temporalBadgeLabel ? (
+                          <Badge variant="secondary" className="rounded-full px-2.5 py-1 text-[11px]">
+                            {temporalBadgeLabel}
+                          </Badge>
                         ) : null}
 
-                        {reservation.status === "Confirmada" ? (
-                          <>
+                        {flowActions.length > 0 ? (
+                          flowActions.map((action) => (
                             <Button
+                              key={action.label}
                               size="sm"
-                              className="h-9 rounded-xl bg-violet-600 px-3 text-white hover:bg-violet-700"
+                              variant={action.variant === "default" ? "default" : action.variant}
+                              className={getFlowButtonClassName(action.nextStatus, action.variant)}
                               onClick={() =>
-                                applyReservationStatusChange(reservation.id, "Ocupada")
+                                applyReservationStatusChange(reservation.id, action.nextStatus)
                               }
                             >
-                              <SquareDashedMousePointer className="mr-2 h-4 w-4" />
-                              Marcar ocupada
+                              {action.nextStatus === "Confirmada" ? (
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                              ) : action.nextStatus === "Cancelada" ? (
+                                <CircleSlash2 className="mr-2 h-4 w-4" />
+                              ) : action.nextStatus === "No-show" ? (
+                                <TimerReset className="mr-2 h-4 w-4" />
+                              ) : action.nextStatus === "Ocupada" ? (
+                                <SquareDashedMousePointer className="mr-2 h-4 w-4" />
+                              ) : action.nextStatus === "Completada" ? (
+                                <SquareCheckBig className="mr-2 h-4 w-4" />
+                              ) : null}
+                              {action.label}
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-9 rounded-xl border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
-                              onClick={() =>
-                                applyReservationStatusChange(reservation.id, "Cancelada")
-                              }
-                            >
-                              <CircleSlash2 className="mr-2 h-4 w-4" />
-                              Cancelar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-9 rounded-xl border-slate-200 bg-slate-50 px-3 text-slate-700 hover:bg-slate-100 hover:text-slate-950"
-                              onClick={() =>
-                                applyReservationStatusChange(reservation.id, "No-show")
-                              }
-                            >
-                              <TimerReset className="mr-2 h-4 w-4" />
-                              No-show
-                            </Button>
-                          </>
-                        ) : null}
-
-                        {reservation.status === "Ocupada" ? (
-                          <Button
-                            size="sm"
-                            className="h-9 rounded-xl bg-emerald-700 px-3 text-white hover:bg-emerald-800"
-                            onClick={() =>
-                              applyReservationStatusChange(reservation.id, "Completada")
-                            }
-                          >
-                            <SquareCheckBig className="mr-2 h-4 w-4" />
-                            Marcar completada
-                          </Button>
-                        ) : null}
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-400">Sin flujo operativo</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -771,7 +849,8 @@ export default function ReservationsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -831,7 +910,7 @@ export default function ReservationsPage() {
                             Fecha y hora
                           </p>
                           <p className="mt-1 font-medium text-white">
-                            {dialog.form.date} · {dialog.form.time}
+                            {formatDisplayDate(dialog.form.date)} · {dialog.form.time}
                           </p>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
@@ -869,7 +948,9 @@ export default function ReservationsPage() {
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                           Cumpleaños
                         </p>
-                        <p className="mt-1 text-slate-700">{dialog.form.birthday || '—'}</p>
+                        <p className="mt-1 text-slate-700">
+                          {dialog.form.birthday ? formatDisplayDate(dialog.form.birthday) : "—"}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
@@ -901,7 +982,7 @@ export default function ReservationsPage() {
                           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                             Fecha
                           </p>
-                          <p className="mt-1 text-slate-700">{dialog.form.date}</p>
+                          <p className="mt-1 text-slate-700">{formatDisplayDate(dialog.form.date)}</p>
                         </div>
                         <div>
                           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">

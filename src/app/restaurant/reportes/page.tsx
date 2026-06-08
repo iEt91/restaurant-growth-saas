@@ -20,10 +20,10 @@ import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import { cn } from "@/lib/utils";
 import {
   calculateReports,
-  getReportReferenceDate,
   type ReportAnalytics,
   type ReportPeriod,
 } from "@/lib/report-analytics";
+import { getTodayDateKey } from "@/lib/date-utils";
 
 const PERIOD_OPTIONS: Array<{ value: ReportPeriod; label: string }> = [
   { value: "Hoy", label: "Hoy" },
@@ -54,12 +54,8 @@ function formatPercent(value: number) {
   return `${value.toFixed(0)}%`;
 }
 
-function getLocalIsoDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+function getLocalIsoDate() {
+  return getTodayDateKey();
 }
 
 function subscribeToCurrentDate(onStoreChange: () => void) {
@@ -108,7 +104,7 @@ function subscribeToCurrentDate(onStoreChange: () => void) {
 function useCurrentLocalIsoDate() {
   return React.useSyncExternalStore(
     subscribeToCurrentDate,
-    () => getLocalIsoDate(new Date()),
+    () => getLocalIsoDate(),
     () => null
   );
 }
@@ -525,15 +521,11 @@ function BreakdownList({
 
 export default function ReportsPage() {
   const { reservations, customers, tables, menuItems } = useRestaurantFlow();
-  const referenceDate = React.useMemo(
-    () => getReportReferenceDate(reservations),
-    [reservations]
-  );
   const todayDate = useCurrentLocalIsoDate();
-  const [period, setPeriod] = React.useState<ReportPeriod>("Mes");
+  const [period, setPeriod] = React.useState<ReportPeriod>("Hoy");
   const [customRange, setCustomRange] = React.useState({
-    from: referenceDate,
-    to: referenceDate,
+    from: getTodayDateKey(),
+    to: getTodayDateKey(),
   });
 
   const analytics = React.useMemo(

@@ -1,5 +1,17 @@
 import type { Customer, MenuItem, RestaurantTable, ReservationStatus } from "@/types/domain";
 import type { RestaurantReservation } from "@/data/restaurant-ops";
+import {
+  endOfMonthDateKey,
+  endOfWeekDateKey,
+  formatDisplayDate as formatSharedDisplayDate,
+  formatUtcDateKey as formatSharedUtcDateKey,
+  getTodayDateKey,
+  isDateWithinRange,
+  normalizeDateKey as normalizeSharedDateKey,
+  parseDateKeyToUtcDate,
+  startOfMonthDateKey,
+  startOfWeekDateKey,
+} from "@/lib/date-utils";
 
 export type ReportPeriod = "Hoy" | "Semana" | "Mes" | "Personalizado";
 
@@ -85,137 +97,40 @@ export type ReportAnalytics = {
 
 const CHANNEL_ORDER = ["Web", "WhatsApp", "Teléfono", "Presencial"] as const;
 
-function formatLocalIsoDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
 function formatUtcDateKey(date: Date) {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return formatSharedUtcDateKey(date);
 }
 
 export function normalizeDateKey(value: Date | string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : formatLocalIsoDate(value);
-  }
-
-  const date = value.trim();
-  const isoMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
-
-  if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    return `${year}-${month}-${day}`;
-  }
-
-  const argentineMatch = date.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-
-  if (argentineMatch) {
-    const [, day, month, year] = argentineMatch;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-  }
-
-  return null;
+  return normalizeSharedDateKey(value);
 }
 
 function parseDateKey(value: string | null | undefined) {
-  const dateKey = normalizeDateKey(value);
-
-  if (!dateKey) {
-    return null;
-  }
-
-  const [yearRaw, monthRaw, dayRaw] = dateKey.split("-");
-  const year = Number(yearRaw);
-  const month = Number(monthRaw);
-  const day = Number(dayRaw);
-
-  if (!year || !month || !day) {
-    return null;
-  }
-
-  return new Date(Date.UTC(year, month - 1, day));
+  return parseDateKeyToUtcDate(value);
 }
 
 export function formatDisplayDate(value: string) {
-  const dateKey = normalizeDateKey(value);
-
-  if (!dateKey) {
-    return value;
-  }
-
-  const [year, month, day] = dateKey.split("-");
-
-  return `${day}/${month}/${year}`;
+  return formatSharedDisplayDate(value);
 }
 
 function startOfMonthIso(value: string) {
-  const date = parseDateKey(value);
-
-  if (!date) {
-    return value;
-  }
-
-  date.setUTCDate(1);
-  return formatUtcDateKey(date);
+  return startOfMonthDateKey(value);
 }
 
 function endOfMonthIso(value: string) {
-  const date = parseDateKey(value);
-
-  if (!date) {
-    return value;
-  }
-
-  date.setUTCMonth(date.getUTCMonth() + 1, 0);
-  return formatUtcDateKey(date);
+  return endOfMonthDateKey(value);
 }
 
 function startOfWeekIso(value: string) {
-  const date = parseDateKey(value);
-
-  if (!date) {
-    return value;
-  }
-
-  const dayOfWeek = date.getUTCDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  date.setUTCDate(date.getUTCDate() + mondayOffset);
-
-  return formatUtcDateKey(date);
+  return startOfWeekDateKey(value);
 }
 
 function endOfWeekIso(value: string) {
-  const date = parseDateKey(startOfWeekIso(value));
-
-  if (!date) {
-    return value;
-  }
-
-  date.setUTCDate(date.getUTCDate() + 6);
-  return formatUtcDateKey(date);
+  return endOfWeekDateKey(value);
 }
 
 function isWithinRange(date: string, range: ReportDateRange) {
-  const dateKey = normalizeDateKey(date);
-  const fromKey = normalizeDateKey(range.from);
-  const toKey = normalizeDateKey(range.to);
-
-  if (!dateKey || !fromKey || !toKey) {
-    return false;
-  }
-
-  return dateKey >= fromKey && dateKey <= toKey;
+  return isDateWithinRange(date, range.from, range.to);
 }
 
 function getReservationSubtotal(reservation: RestaurantReservation) {
@@ -233,7 +148,7 @@ function getLatestReservationDate(reservations: RestaurantReservation[]) {
         .filter((dateKey): dateKey is string => Boolean(dateKey))
     ),
   ].sort();
-  return sortedDates.at(-1) ?? formatLocalIsoDate(new Date());
+  return sortedDates.at(-1) ?? getTodayDateKey();
 }
 
 export function getReportReferenceDate(reservations: RestaurantReservation[]) {
@@ -245,7 +160,7 @@ function buildPeriodRange(
   reportDate: string,
   customRange: ReportDateRange
 ) {
-  const normalizedReportDate = normalizeDateKey(reportDate) ?? formatLocalIsoDate(new Date());
+  const normalizedReportDate = normalizeDateKey(reportDate) ?? getTodayDateKey();
 
   if (period === "Personalizado") {
     const from = normalizeDateKey(customRange.from) ?? normalizedReportDate;
