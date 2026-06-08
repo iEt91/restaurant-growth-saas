@@ -72,7 +72,7 @@ export const restaurantReservations: RestaurantReservation[] = [
     channel: "Teléfono",
     status: "Ocupada",
     tableName: "Mesa 03",
-    occupiedMinutesElapsed: 1,
+    occupiedMinutesElapsed: 0,
   },
   {
     id: "res-4",

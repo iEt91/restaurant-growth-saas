@@ -55,14 +55,21 @@ export default function FloorPlanPage() {
   const activeReservation = selectedTable
     ? getActiveReservationForTable(selectedTable.name)
     : null;
-  const occupiedMinutesRemaining =
-    activeReservation && activeReservation.status === "Ocupada"
-      ? Math.max(
-          standardReservationDurationMinutes -
-            (activeReservation.occupiedMinutesElapsed ?? 0),
-          0
-        )
-      : null;
+  const getOccupiedMinutesRemaining = React.useCallback(
+    (reservation: { occupiedMinutesElapsed?: number } | null) =>
+      Math.max(
+        standardReservationDurationMinutes - (reservation?.occupiedMinutesElapsed ?? 0),
+        0
+      ),
+    [standardReservationDurationMinutes]
+  );
+  const selectedTableOccupiedMinutesRemaining = React.useMemo(() => {
+    if (selectedTable?.status !== "Ocupada") {
+      return null;
+    }
+
+    return getOccupiedMinutesRemaining(activeReservation);
+  }, [activeReservation, getOccupiedMinutesRemaining, selectedTable?.status]);
 
   function handleOpenReservation() {
     if (!activeReservation) {
@@ -139,6 +146,14 @@ export default function FloorPlanPage() {
                         {activeReservation ? `${activeReservation.firstName} ${activeReservation.lastName}` : "Sin reserva activa"}
                       </span>
                     </p>
+                    {selectedTable.status === "Ocupada" ? (
+                      <p>
+                        Tiempo restante:{" "}
+                        <span className="text-slate-950">
+                          {selectedTableOccupiedMinutesRemaining} min restantes
+                        </span>
+                      </p>
+                    ) : null}
                     {activeReservation ? (
                       <>
                         <p>
@@ -149,14 +164,6 @@ export default function FloorPlanPage() {
                           Personas:{" "}
                           <span className="text-slate-950">{activeReservation.partySize}</span>
                         </p>
-                        {occupiedMinutesRemaining !== null ? (
-                          <p>
-                            Tiempo restante:{" "}
-                            <span className="text-slate-950">
-                              {occupiedMinutesRemaining} min
-                            </span>
-                          </p>
-                        ) : null}
                       </>
                     ) : null}
                   </div>
@@ -185,39 +192,42 @@ export default function FloorPlanPage() {
 
                 <div className="ml-20 grid h-full grid-cols-4 grid-rows-2 gap-4">
                   {tables.map((table) => (
-                    <button
-                      key={table.id}
-                      type="button"
-                      onClick={() => setSelectedTableId(table.id)}
-                      className={cn(
-                        "flex min-h-[120px] flex-col justify-between rounded-[22px] border border-white/20 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:scale-[1.01]",
-                        tableStateClasses[table.status]
-                      )}
-                      style={{ gridColumn: `span ${table.w}`, gridRow: `span ${table.h}` }}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold">{table.name}</span>
-                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
-                          {table.capacity}p
-                        </span>
-                      </div>
-                      <div className="text-xs opacity-90">
-                        {activeReservation && activeReservation.tableName === table.name
-                          ? `${activeReservation.firstName} ${activeReservation.lastName}`
-                          : "Libre"}
-                      </div>
-                      {activeReservation?.status === "Ocupada" &&
-                      activeReservation.tableName === table.name ? (
-                        <div className="mt-1 text-[11px] font-medium opacity-90">
-                          {Math.max(
-                            standardReservationDurationMinutes -
-                              (activeReservation.occupiedMinutesElapsed ?? 0),
-                            0
-                          )}{" "}
-                          min restantes
-                        </div>
-                      ) : null}
-                    </button>
+                    (() => {
+                      const tableReservation = getActiveReservationForTable(table.name);
+                      const tableOccupiedMinutesRemaining =
+                        table.status === "Ocupada"
+                          ? getOccupiedMinutesRemaining(tableReservation)
+                          : null;
+
+                      return (
+                        <button
+                          key={table.id}
+                          type="button"
+                          onClick={() => setSelectedTableId(table.id)}
+                          className={cn(
+                            "flex min-h-[120px] flex-col justify-between rounded-[22px] border border-white/20 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:scale-[1.01]",
+                            tableStateClasses[table.status]
+                          )}
+                          style={{
+                            gridColumn: `span ${table.w}`,
+                            gridRow: `span ${table.h}`,
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-semibold">{table.name}</span>
+                            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
+                              {table.capacity}p
+                            </span>
+                          </div>
+                          <div className="text-xs opacity-90">{table.status}</div>
+                          {table.status === "Ocupada" ? (
+                            <div className="mt-1 text-[11px] font-medium opacity-90">
+                              {tableOccupiedMinutesRemaining} min restantes
+                            </div>
+                          ) : null}
+                        </button>
+                      );
+                    })()
                   ))}
                 </div>
               </div>
@@ -363,6 +373,17 @@ export default function FloorPlanPage() {
                   </div>
                 </div>
               )}
+
+              {selectedTable.status === "Ocupada" ? (
+                <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-rose-500">
+                    Tiempo restante
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-rose-600">
+                    {selectedTableOccupiedMinutesRemaining} min restantes
+                  </p>
+                </div>
+              ) : null}
 
               <div className="flex flex-wrap justify-end gap-3">
                 <Button
