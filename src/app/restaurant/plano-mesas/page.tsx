@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { RestaurantConsumptionModal } from "@/components/restaurant-consumption-modal";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import type { RestaurantTable } from "@/types/domain";
 import { cn } from "@/lib/utils";
@@ -39,22 +40,44 @@ const manualStatuses: RestaurantTable["status"][] = [
   "Fuera de servicio",
 ];
 
+const moneyFormatter = new Intl.NumberFormat("es-AR", {
+  currency: "ARS",
+  maximumFractionDigits: 0,
+  style: "currency",
+});
+
+function formatMoney(value: number) {
+  return moneyFormatter.format(value);
+}
+
 export default function FloorPlanPage() {
   const router = useRouter();
   const {
     tables,
     getActiveReservationForTable,
+    getConsumptionItemsForReservation,
     updateTableStatus,
+    saveConsumptionItems,
     openReservationDetail,
     standardReservationDurationMinutes,
   } = useRestaurantFlow();
   const [selectedTableId, setSelectedTableId] = React.useState<string | null>(null);
+  const [isConsumptionOpen, setIsConsumptionOpen] = React.useState(false);
 
   const selectedTable =
     tables.find((table) => table.id === selectedTableId) ?? null;
   const activeReservation = selectedTable
     ? getActiveReservationForTable(selectedTable.name)
     : null;
+  const activeReservationId = activeReservation?.id ?? null;
+  const activeConsumptionItems = React.useMemo(
+    () => getConsumptionItemsForReservation(activeReservationId),
+    [activeReservationId, getConsumptionItemsForReservation]
+  );
+  const activeConsumptionTotal = React.useMemo(
+    () => activeConsumptionItems.reduce((sum, item) => sum + item.lineTotal, 0),
+    [activeConsumptionItems]
+  );
   const getOccupiedMinutesRemaining = React.useCallback(
     (reservation: { occupiedMinutesElapsed?: number } | null) =>
       Math.max(
@@ -78,6 +101,14 @@ export default function FloorPlanPage() {
 
     openReservationDetail(activeReservation.id);
     router.push("/restaurant/reservas");
+  }
+
+  function handleOpenConsumption() {
+    if (!selectedTable || selectedTable.status !== "Ocupada" || !activeReservation) {
+      return;
+    }
+
+    setIsConsumptionOpen(true);
   }
 
   return (
@@ -166,6 +197,19 @@ export default function FloorPlanPage() {
                         </p>
                       </>
                     ) : null}
+                    {activeConsumptionItems.length > 0 ? (
+                      <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-violet-600">
+                          Consumos
+                        </p>
+                        <p className="mt-2 text-sm font-medium text-slate-950">
+                          {activeConsumptionItems.length} items cargados
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          Total estimado: {formatMoney(activeConsumptionTotal)}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="mt-3 text-sm text-slate-500">Seleccioná una mesa.</p>
@@ -246,13 +290,31 @@ export default function FloorPlanPage() {
             className="w-full justify-start rounded-2xl"
             onClick={handleOpenReservation}
             disabled={!activeReservation}
+            title={
+              !activeReservation ? "No hay una reserva activa para ver." : undefined
+            }
           >
             Ver reserva
           </Button>
 
-          <Button variant="outline" className="w-full justify-start rounded-2xl">
+          <Button
+            variant="outline"
+            className="w-full justify-start rounded-2xl"
+            onClick={handleOpenConsumption}
+            disabled={selectedTable?.status !== "Ocupada" || !activeReservation}
+            title={
+              selectedTable?.status !== "Ocupada"
+                ? "Solo se puede cargar consumo en mesas ocupadas."
+                : undefined
+            }
+          >
             Agregar consumo
           </Button>
+          {selectedTable?.status !== "Ocupada" ? (
+            <p className="text-xs text-slate-400">
+              Solo se puede cargar consumo en mesas ocupadas.
+            </p>
+          ) : null}
 
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
@@ -394,7 +456,17 @@ export default function FloorPlanPage() {
                 >
                   Ver reserva
                 </Button>
-                <Button variant="outline" className="rounded-2xl">
+                <Button
+                  variant="outline"
+                  className="rounded-2xl"
+                  onClick={handleOpenConsumption}
+                  disabled={selectedTable?.status !== "Ocupada" || !activeReservation}
+                  title={
+                    selectedTable?.status !== "Ocupada"
+                      ? "Solo se puede cargar consumo en mesas ocupadas."
+                      : undefined
+                  }
+                >
                   Agregar consumo
                 </Button>
                 <Button
@@ -421,6 +493,31 @@ export default function FloorPlanPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <RestaurantConsumptionModal
+        key={`${activeReservation?.id ?? "no-reservation"}-${isConsumptionOpen ? "open" : "closed"}`}
+        open={isConsumptionOpen}
+        onOpenChange={setIsConsumptionOpen}
+        reservationId={activeReservation?.id ?? null}
+        tableName={selectedTable?.name ?? ""}
+        clientName={
+          activeReservation
+            ? `${activeReservation.firstName} ${activeReservation.lastName}`
+            : ""
+        }
+        tableStatus={selectedTable?.status ?? "Libre"}
+        timeRemainingMinutes={
+          selectedTable?.status === "Ocupada" ? selectedTableOccupiedMinutesRemaining : null
+        }
+        existingItems={activeConsumptionItems}
+        onSave={(items) => {
+          if (!activeReservation) {
+            return;
+          }
+
+          saveConsumptionItems(activeReservation.id, items);
+        }}
+      />
     </div>
   );
 }

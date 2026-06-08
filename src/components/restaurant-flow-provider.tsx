@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
-import type { RestaurantTable, ReservationStatus } from "@/types/domain";
+import type {
+  RestaurantTable,
+  ReservationStatus,
+  TableConsumptionItem,
+} from "@/types/domain";
 import {
   restaurantReservations,
   restaurantTables,
@@ -25,6 +29,13 @@ type RestaurantFlowContextValue = {
   setIntervalBetweenReservationsMinutes: (minutes: number) => void;
   getReservationById: (reservationId: string | null) => RestaurantReservation | null;
   getActiveReservationForTable: (tableName: string) => RestaurantReservation | null;
+  getConsumptionItemsForReservation: (
+    reservationId: string | null
+  ) => TableConsumptionItem[];
+  saveConsumptionItems: (
+    reservationId: string,
+    items: TableConsumptionItem[]
+  ) => void;
   openReservationDetail: (reservationId: string) => void;
   focusedReservationId: string | null;
   clearFocusedReservation: () => void;
@@ -44,6 +55,13 @@ function deriveStatusFromReservation(status: ReservationStatus): TableOverrideSt
   if (status === "Confirmada") return "Reservada";
   if (status === "Ocupada") return "Ocupada";
   return "Libre";
+}
+
+function preserveConsumptionItems(
+  nextReservation: RestaurantReservation,
+  currentReservation: RestaurantReservation | undefined
+) {
+  return nextReservation.consumptionItems ?? currentReservation?.consumptionItems;
 }
 
 export function RestaurantFlowProvider({
@@ -103,6 +121,20 @@ export function RestaurantFlowProvider({
     [reservations]
   );
 
+  const getConsumptionItemsForReservation = React.useCallback(
+    (reservationId: string | null) => {
+      if (!reservationId) {
+        return [];
+      }
+
+      return (
+        reservations.find((reservation) => reservation.id === reservationId)
+          ?.consumptionItems ?? []
+      );
+    },
+    [reservations]
+  );
+
   const tables = React.useMemo(() => {
     return restaurantTables.map((table) => {
       const activeReservation = getActiveReservationForTable(table.name);
@@ -137,6 +169,7 @@ export function RestaurantFlowProvider({
                   reservation.status === "Ocupada"
                     ? item.occupiedMinutesElapsed ?? 0
                     : undefined,
+                consumptionItems: preserveConsumptionItems(reservation, item),
               }
             : item
         );
@@ -147,6 +180,7 @@ export function RestaurantFlowProvider({
           ...reservation,
           occupiedMinutesElapsed:
             reservation.status === "Ocupada" ? 0 : undefined,
+          consumptionItems: reservation.consumptionItems ?? [],
         },
         ...current,
       ];
@@ -165,11 +199,28 @@ export function RestaurantFlowProvider({
               ...reservation,
               status: nextStatus,
               occupiedMinutesElapsed: nextStatus === "Ocupada" ? 0 : undefined,
+              consumptionItems: reservation.consumptionItems ?? [],
             }
           : reservation
       )
     );
   }, []);
+
+  const saveConsumptionItems = React.useCallback(
+    (reservationId: string, items: TableConsumptionItem[]) => {
+      setReservations((current) =>
+        current.map((reservation) =>
+          reservation.id === reservationId
+            ? {
+                ...reservation,
+                consumptionItems: items,
+              }
+            : reservation
+        )
+      );
+    },
+    []
+  );
 
   const updateTableStatus = React.useCallback(
     (tableId: string, nextStatus: TableOverrideStatus) => {
@@ -200,6 +251,8 @@ export function RestaurantFlowProvider({
       setIntervalBetweenReservationsMinutes,
       getReservationById,
       getActiveReservationForTable,
+      getConsumptionItemsForReservation,
+      saveConsumptionItems,
       openReservationDetail,
       focusedReservationId,
       clearFocusedReservation,
@@ -209,10 +262,12 @@ export function RestaurantFlowProvider({
       focusedReservationId,
       getActiveReservationForTable,
       getReservationById,
+      getConsumptionItemsForReservation,
       intervalBetweenReservationsMinutes,
       openReservationDetail,
       reservations,
       saveReservation,
+      saveConsumptionItems,
       setIntervalBetweenReservationsMinutes,
       setStandardReservationDurationMinutes,
       standardReservationDurationMinutes,

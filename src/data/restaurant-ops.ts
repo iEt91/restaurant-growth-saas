@@ -1,4 +1,8 @@
-import type { RestaurantTable, ReservationStatus } from "@/types/domain";
+import type {
+  RestaurantTable,
+  ReservationStatus,
+  TableConsumptionItem,
+} from "@/types/domain";
 
 export type ReservationChannel = "Web" | "WhatsApp" | "Teléfono" | "Presencial";
 
@@ -19,6 +23,7 @@ export type RestaurantReservation = {
   status: ReservationStatus;
   tableName: string;
   occupiedMinutesElapsed?: number;
+  consumptionItems?: TableConsumptionItem[];
 };
 
 export const restaurantReservations: RestaurantReservation[] = [

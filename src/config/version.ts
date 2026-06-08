@@ -1,10 +1,12 @@
-export const APP_VERSION = "v 1.2.2";
+export const APP_VERSION = "v 1.3.0";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Consumos por mesa agregados desde plano de mesas",
+      "Modal de consumos con items persistidos en la sesion",
       "Estado interno y contador de mesas ocupadas corregidos",
       "Contador de mesas ocupadas agregado al plano",
       "Plano de mesas sin modal automatico al entrar",

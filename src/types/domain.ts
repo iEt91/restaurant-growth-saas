@@ -64,6 +64,24 @@ export interface Reservation {
   vip?: boolean;
 }
 
+export interface TableConsumptionItem {
+  id: string;
+  reservationId: string;
+  tableName: string;
+  category:
+    | "Entradas"
+    | "Principales"
+    | "Postres"
+    | "Bebidas"
+    | "Vinos"
+    | "Tragos";
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
 export interface Customer {
   id: string;
   fullName: string;
