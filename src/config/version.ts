@@ -1,10 +1,11 @@
-export const APP_VERSION = "v 1.1.1";
+export const APP_VERSION = "v 1.1.2";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-07",
     notes: [
+      "Acciones de reservas separadas por flujo y acciones",
       "Acciones rapidas y modal con scroll interno en reservas",
       "Reservas funcionales con estado local",
       "Horarios comerciales con bloques largos permitidos",

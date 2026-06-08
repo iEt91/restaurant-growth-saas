@@ -14,7 +14,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Eye, Pencil, Plus, SlidersHorizontal } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  CircleSlash2,
+  Eye,
+  Pencil,
+  Plus,
+  SlidersHorizontal,
+  SquareCheckBig,
+  SquareDashedMousePointer,
+  TimerReset,
+} from "lucide-react";
 
 const reservationStatuses = [
   "Todas",
@@ -359,18 +370,6 @@ export default function ReservationsPage() {
     );
   }
 
-  function handleDeleteReservation(reservationId: string) {
-    const shouldDelete = window.confirm(
-      "¿Querés eliminar esta reserva? Esta acción no se puede deshacer."
-    );
-
-    if (!shouldDelete) return;
-
-    setReservations((current) =>
-      current.filter((reservation) => reservation.id !== reservationId)
-    );
-  }
-
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -487,6 +486,7 @@ export default function ReservationsPage() {
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3">Mesa</th>
                   <th className="px-4 py-3">Canal</th>
+                  <th className="px-4 py-3">Estado / Flujo</th>
                   <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -518,6 +518,85 @@ export default function ReservationsPage() {
                     </td>
                     <td className="px-4 py-3">{reservation.tableName}</td>
                     <td className="px-4 py-3">{reservation.channel}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {reservation.status === "Pendiente" ? (
+                          <>
+                            <Button
+                              size="sm"
+                              className="rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "Confirmada")
+                              }
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                              Confirmar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "Cancelada")
+                              }
+                            >
+                              <CircleSlash2 className="mr-2 h-4 w-4" />
+                              Cancelar
+                            </Button>
+                          </>
+                        ) : null}
+
+                        {reservation.status === "Confirmada" ? (
+                          <>
+                            <Button
+                              size="sm"
+                              className="rounded-xl bg-violet-600 text-white hover:bg-violet-700"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "Ocupada")
+                              }
+                            >
+                              <SquareDashedMousePointer className="mr-2 h-4 w-4" />
+                              Marcar ocupada
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "Cancelada")
+                              }
+                            >
+                              <CircleSlash2 className="mr-2 h-4 w-4" />
+                              Cancelar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "No-show")
+                              }
+                            >
+                              <TimerReset className="mr-2 h-4 w-4" />
+                              No-show
+                            </Button>
+                          </>
+                        ) : null}
+
+                        {reservation.status === "Ocupada" ? (
+                          <Button
+                            size="sm"
+                            className="rounded-xl bg-emerald-700 text-white hover:bg-emerald-800"
+                            onClick={() =>
+                              updateReservationStatus(reservation.id, "Completada")
+                            }
+                          >
+                            <SquareCheckBig className="mr-2 h-4 w-4" />
+                            Marcar completada
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex flex-wrap justify-end gap-2">
                         <Button
@@ -538,74 +617,6 @@ export default function ReservationsPage() {
                           <Pencil className="mr-2 h-4 w-4" />
                           Editar
                         </Button>
-
-                        {reservation.status === "Pendiente" ? (
-                          <>
-                            <Button
-                              size="sm"
-                              className="rounded-xl"
-                              onClick={() =>
-                                updateReservationStatus(reservation.id, "Confirmada")
-                              }
-                            >
-                              Confirmar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-xl"
-                              onClick={() =>
-                                updateReservationStatus(reservation.id, "Cancelada")
-                              }
-                            >
-                              Cancelar
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                              onClick={() => handleDeleteReservation(reservation.id)}
-                            >
-                              Eliminar
-                            </Button>
-                          </>
-                        ) : null}
-
-                        {reservation.status === "Confirmada" ? (
-                          <>
-                            <Button
-                              size="sm"
-                              className="rounded-xl"
-                              onClick={() =>
-                                updateReservationStatus(reservation.id, "Ocupada")
-                              }
-                            >
-                              Marcar ocupada
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-xl"
-                              onClick={() =>
-                                updateReservationStatus(reservation.id, "Cancelada")
-                              }
-                            >
-                              Cancelar
-                            </Button>
-                          </>
-                        ) : null}
-
-                        {reservation.status === "Ocupada" ? (
-                          <Button
-                            size="sm"
-                            className="rounded-xl"
-                            onClick={() =>
-                              updateReservationStatus(reservation.id, "Completada")
-                            }
-                          >
-                            Marcar completada
-                          </Button>
-                        ) : null}
                       </div>
                     </td>
                   </tr>
