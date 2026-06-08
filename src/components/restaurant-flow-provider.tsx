@@ -24,6 +24,7 @@ type RestaurantFlowContextValue = {
   intervalBetweenReservationsMinutes: number;
   saveReservation: (reservation: RestaurantReservation) => void;
   saveMenuItem: (menuItem: MenuItem) => void;
+  deleteMenuItem: (menuItemId: string) => void;
   updateReservationStatus: (
     reservationId: string,
     nextStatus: ReservationStatus
@@ -268,6 +269,10 @@ export function RestaurantFlowProvider({
     });
   }, []);
 
+  const deleteMenuItem = React.useCallback((menuItemId: string) => {
+    setMenuItems((current) => current.filter((item) => item.id !== menuItemId));
+  }, []);
+
   const updateReservationStatus = React.useCallback(
     (
     reservationId: string,
@@ -352,6 +357,7 @@ export function RestaurantFlowProvider({
       intervalBetweenReservationsMinutes,
       saveReservation,
       saveMenuItem,
+      deleteMenuItem,
       updateReservationStatus,
       updateTableStatus,
       setMenuItemActive,
@@ -379,6 +385,7 @@ export function RestaurantFlowProvider({
       reservations,
       saveReservation,
       saveMenuItem,
+      deleteMenuItem,
       saveConsumptionItems,
       setIntervalBetweenReservationsMinutes,
       setMenuItemActive,

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Search, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,7 +71,7 @@ function getFormFromItem(item: MenuItem): MenuFormState {
 }
 
 export default function MenuPage() {
-  const { menuItems, saveMenuItem, setMenuItemActive } = useRestaurantFlow();
+  const { menuItems, saveMenuItem, deleteMenuItem, setMenuItemActive } = useRestaurantFlow();
   const [selectedCategory, setSelectedCategory] = React.useState<MenuCategory | "Todas">("Todas");
   const [search, setSearch] = React.useState("");
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -125,6 +125,18 @@ export default function MenuPage() {
   function openEditDialog(item: MenuItem) {
     setForm(getFormFromItem(item));
     setDialogOpen(true);
+  }
+
+  function handleDeleteMenuItem(item: MenuItem) {
+    const confirmed = window.confirm(
+      "¿Seguro que querés eliminar este producto? Esta acción no se puede deshacer."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    deleteMenuItem(item.id);
   }
 
   function closeDialog() {
@@ -268,12 +280,16 @@ export default function MenuPage() {
                           <Pencil className="mr-2 h-4 w-4" />
                           Editar
                         </Button>
-                        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                          {item.active ? (
-                            <ToggleRight className="h-4 w-4 text-emerald-600" />
-                          ) : (
-                            <ToggleLeft className="h-4 w-4 text-slate-400" />
-                          )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                          onClick={() => handleDeleteMenuItem(item)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </Button>
+                        <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                           <Switch
                             checked={item.active}
                             onCheckedChange={(checked) =>
