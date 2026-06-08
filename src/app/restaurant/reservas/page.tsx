@@ -29,6 +29,7 @@ const reservationStatuses = [
 const channelOptions = ["Web", "WhatsApp", "Teléfono", "Presencial"] as const;
 
 type ReservationStatus = (typeof reservationStatuses)[number];
+type ReservationActionStatus = Exclude<ReservationStatus, "Todas">;
 type ReservationChannel = (typeof channelOptions)[number];
 type DialogMode = "create" | "edit" | "view";
 
@@ -46,7 +47,7 @@ type ReservationRow = {
   time: string;
   partySize: number;
   channel: ReservationChannel;
-  status: Exclude<ReservationStatus, "Todas">;
+  status: ReservationActionStatus;
   tableName: string;
 };
 
@@ -63,7 +64,7 @@ type ReservationFormState = {
   time: string;
   partySize: string;
   channel: ReservationChannel;
-  status: Exclude<ReservationStatus, "Todas">;
+  status: ReservationActionStatus;
   tableName: string;
 };
 
@@ -180,7 +181,7 @@ const initialReservations: ReservationRow[] = [
   },
 ];
 
-const statusStyles: Record<Exclude<ReservationStatus, "Todas">, string> = {
+const statusStyles: Record<ReservationActionStatus, string> = {
   Pendiente: "bg-amber-50 text-amber-700 border-amber-200",
   Confirmada: "bg-emerald-50 text-emerald-700 border-emerald-200",
   Ocupada: "bg-violet-50 text-violet-700 border-violet-200",
@@ -254,7 +255,8 @@ function validateReservationForm(form: ReservationFormState) {
 }
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] = React.useState<ReservationRow[]>(initialReservations);
+  const [reservations, setReservations] =
+    React.useState<ReservationRow[]>(initialReservations);
   const [selectedFilter, setSelectedFilter] =
     React.useState<ReservationStatus>("Todas");
   const [dialog, setDialog] = React.useState<ReservationDialogState>({
@@ -273,10 +275,12 @@ export default function ReservationsPage() {
           return acc;
         }
 
-        acc[status] = reservations.filter((reservation) => reservation.status === status).length;
+        acc[status] = reservations.filter(
+          (reservation) => reservation.status === status
+        ).length;
         return acc;
       },
-      {} as Record<Exclude<ReservationStatus, "Todas">, number>
+      {} as Record<ReservationActionStatus, number>
     );
 
     return {
@@ -333,13 +337,38 @@ export default function ReservationsPage() {
 
   function updateFormField(
     field: keyof ReservationFormState,
-    value: string | ReservationStatus
+    value: string | ReservationActionStatus
   ) {
     setDialog((current) => ({
       ...current,
       form: { ...current.form, [field]: value },
       error: null,
     }));
+  }
+
+  function updateReservationStatus(
+    reservationId: string,
+    nextStatus: ReservationActionStatus
+  ) {
+    setReservations((current) =>
+      current.map((reservation) =>
+        reservation.id === reservationId
+          ? { ...reservation, status: nextStatus }
+          : reservation
+      )
+    );
+  }
+
+  function handleDeleteReservation(reservationId: string) {
+    const shouldDelete = window.confirm(
+      "¿Querés eliminar esta reserva? Esta acción no se puede deshacer."
+    );
+
+    if (!shouldDelete) return;
+
+    setReservations((current) =>
+      current.filter((reservation) => reservation.id !== reservationId)
+    );
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -391,6 +420,13 @@ export default function ReservationsPage() {
       : dialog.mode === "edit"
         ? "Editar reserva"
         : "Ver reserva";
+
+  const dialogDescription =
+    dialog.mode === "create"
+      ? "Completá los datos para crear una nueva reserva."
+      : dialog.mode === "edit"
+        ? "Actualizá la reserva sin salir de la pantalla."
+        : "Revisá la información completa de la reserva.";
 
   return (
     <div className="space-y-5">
@@ -483,7 +519,7 @@ export default function ReservationsPage() {
                     <td className="px-4 py-3">{reservation.tableName}</td>
                     <td className="px-4 py-3">{reservation.channel}</td>
                     <td className="px-4 py-3 text-right">
-                      <div className="inline-flex gap-2">
+                      <div className="inline-flex flex-wrap justify-end gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -502,6 +538,74 @@ export default function ReservationsPage() {
                           <Pencil className="mr-2 h-4 w-4" />
                           Editar
                         </Button>
+
+                        {reservation.status === "Pendiente" ? (
+                          <>
+                            <Button
+                              size="sm"
+                              className="rounded-xl"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "Confirmada")
+                              }
+                            >
+                              Confirmar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-xl"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "Cancelada")
+                              }
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                              onClick={() => handleDeleteReservation(reservation.id)}
+                            >
+                              Eliminar
+                            </Button>
+                          </>
+                        ) : null}
+
+                        {reservation.status === "Confirmada" ? (
+                          <>
+                            <Button
+                              size="sm"
+                              className="rounded-xl"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "Ocupada")
+                              }
+                            >
+                              Marcar ocupada
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-xl"
+                              onClick={() =>
+                                updateReservationStatus(reservation.id, "Cancelada")
+                              }
+                            >
+                              Cancelar
+                            </Button>
+                          </>
+                        ) : null}
+
+                        {reservation.status === "Ocupada" ? (
+                          <Button
+                            size="sm"
+                            className="rounded-xl"
+                            onClick={() =>
+                              updateReservationStatus(reservation.id, "Completada")
+                            }
+                          >
+                            Marcar completada
+                          </Button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -528,316 +632,320 @@ export default function ReservationsPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="flex h-[90vh] max-h-[90vh] w-[calc(100vw-2rem)] max-w-4xl flex-col overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>{dialogTitle}</DialogTitle>
-            <DialogDescription>
-              {dialog.mode === "create"
-                ? "Completá los datos para crear una nueva reserva."
-                : dialog.mode === "edit"
-                  ? "Actualizá la reserva sin salir de la pantalla."
-                  : "Revisá la información completa de la reserva."}
-            </DialogDescription>
+            <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
 
-          {dialog.mode === "view" ? (
-            <div className="grid gap-4 py-2 lg:grid-cols-2">
-              <Card className="shadow-none">
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-sm">Datos del cliente</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-3 p-4 pt-0 text-sm">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Nombre
-                    </p>
-                    <p className="mt-1 font-medium text-slate-950">
-                      {dialog.form.firstName} {dialog.form.lastName}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Teléfono
-                    </p>
-                    <p className="mt-1 text-slate-700">{dialog.form.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Email
-                    </p>
-                    <p className="mt-1 text-slate-700">{dialog.form.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Cumpleaños
-                    </p>
-                    <p className="mt-1 text-slate-700">{dialog.form.birthday || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Alergias
-                    </p>
-                    <p className="mt-1 text-slate-700">{dialog.form.allergies || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Preferencias
-                    </p>
-                    <p className="mt-1 text-slate-700">
-                      {dialog.form.preferences || "—"}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+            {dialog.mode === "view" ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card className="shadow-none">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-sm">Datos del cliente</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-3 p-4 pt-0 text-sm">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Nombre
+                      </p>
+                      <p className="mt-1 font-medium text-slate-950">
+                        {dialog.form.firstName} {dialog.form.lastName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Teléfono
+                      </p>
+                      <p className="mt-1 text-slate-700">{dialog.form.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Email
+                      </p>
+                      <p className="mt-1 text-slate-700">{dialog.form.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Cumpleaños
+                      </p>
+                      <p className="mt-1 text-slate-700">{dialog.form.birthday || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Alergias
+                      </p>
+                      <p className="mt-1 text-slate-700">{dialog.form.allergies || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Preferencias
+                      </p>
+                      <p className="mt-1 text-slate-700">
+                        {dialog.form.preferences || "—"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
 
-              <Card className="shadow-none">
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-sm">Datos de la reserva</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-3 p-4 pt-0 text-sm">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Fecha
-                      </p>
-                      <p className="mt-1 text-slate-700">{dialog.form.date}</p>
+                <Card className="shadow-none">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-sm">Datos de la reserva</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-3 p-4 pt-0 text-sm">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Fecha
+                        </p>
+                        <p className="mt-1 text-slate-700">{dialog.form.date}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Hora
+                        </p>
+                        <p className="mt-1 text-slate-700">{dialog.form.time}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Personas
+                        </p>
+                        <p className="mt-1 text-slate-700">{dialog.form.partySize}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Canal
+                        </p>
+                        <p className="mt-1 text-slate-700">{dialog.form.channel}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Estado
+                        </p>
+                        <p className="mt-1 text-slate-700">{dialog.form.status}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Mesa
+                        </p>
+                        <p className="mt-1 text-slate-700">
+                          {dialog.form.tableName || "—"}
+                        </p>
+                      </div>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Hora
+                        Comentarios
                       </p>
-                      <p className="mt-1 text-slate-700">{dialog.form.time}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Personas
+                      <p className="mt-1 text-slate-700">
+                        {dialog.form.comments || "—"}
                       </p>
-                      <p className="mt-1 text-slate-700">{dialog.form.partySize}</p>
                     </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Canal
-                      </p>
-                      <p className="mt-1 text-slate-700">{dialog.form.channel}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Estado
-                      </p>
-                      <p className="mt-1 text-slate-700">{dialog.form.status}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Mesa
-                      </p>
-                      <p className="mt-1 text-slate-700">{dialog.form.tableName || "—"}</p>
-                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <form id="reservation-form" className="space-y-4" onSubmit={handleSubmit}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="first-name">Nombre *</Label>
+                    <Input
+                      id="first-name"
+                      value={dialog.form.firstName}
+                      onChange={(event) =>
+                        updateFormField("firstName", event.target.value)
+                      }
+                    />
                   </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Comentarios
-                    </p>
-                    <p className="mt-1 text-slate-700">
-                      {dialog.form.comments || "—"}
-                    </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="last-name">Apellido *</Label>
+                    <Input
+                      id="last-name"
+                      value={dialog.form.lastName}
+                      onChange={(event) =>
+                        updateFormField("lastName", event.target.value)
+                      }
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <form className="space-y-4 py-2" onSubmit={handleSubmit}>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="first-name">Nombre *</Label>
-                  <Input
-                    id="first-name"
-                    value={dialog.form.firstName}
-                    onChange={(event) =>
-                      updateFormField("firstName", event.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last-name">Apellido *</Label>
-                  <Input
-                    id="last-name"
-                    value={dialog.form.lastName}
-                    onChange={(event) =>
-                      updateFormField("lastName", event.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Teléfono *</Label>
-                  <Input
-                    id="phone"
-                    value={dialog.form.phone}
-                    onChange={(event) => updateFormField("phone", event.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={dialog.form.email}
-                    onChange={(event) => updateFormField("email", event.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date">Fecha *</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={dialog.form.date}
-                    onChange={(event) => updateFormField("date", event.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="time">Hora *</Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    value={dialog.form.time}
-                    onChange={(event) => updateFormField("time", event.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="party-size">Cantidad de personas *</Label>
-                  <Input
-                    id="party-size"
-                    type="number"
-                    min={1}
-                    value={dialog.form.partySize}
-                    onChange={(event) =>
-                      updateFormField("partySize", event.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="channel">Canal *</Label>
-                  <select
-                    id="channel"
-                    value={dialog.form.channel}
-                    onChange={(event) =>
-                      updateFormField("channel", event.target.value as ReservationChannel)
-                    }
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400"
-                  >
-                    {channelOptions.map((channel) => (
-                      <option key={channel} value={channel}>
-                        {channel}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Estado</Label>
-                  <select
-                    id="status"
-                    value={dialog.form.status}
-                    onChange={(event) =>
-                      updateFormField(
-                        "status",
-                        event.target.value as Exclude<ReservationStatus, "Todas">
-                      )
-                    }
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400"
-                  >
-                    {reservationStatuses
-                      .filter((status): status is Exclude<ReservationStatus, "Todas"> =>
-                        status !== "Todas"
-                      )
-                      .map((status) => (
-                        <option key={status} value={status}>
-                          {status}
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Teléfono *</Label>
+                    <Input
+                      id="phone"
+                      value={dialog.form.phone}
+                      onChange={(event) => updateFormField("phone", event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={dialog.form.email}
+                      onChange={(event) => updateFormField("email", event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="date">Fecha *</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={dialog.form.date}
+                      onChange={(event) => updateFormField("date", event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="time">Hora *</Label>
+                    <Input
+                      id="time"
+                      type="time"
+                      value={dialog.form.time}
+                      onChange={(event) => updateFormField("time", event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="party-size">Cantidad de personas *</Label>
+                    <Input
+                      id="party-size"
+                      type="number"
+                      min={1}
+                      value={dialog.form.partySize}
+                      onChange={(event) =>
+                        updateFormField("partySize", event.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="channel">Canal *</Label>
+                    <select
+                      id="channel"
+                      value={dialog.form.channel}
+                      onChange={(event) =>
+                        updateFormField(
+                          "channel",
+                          event.target.value as ReservationChannel
+                        )
+                      }
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400"
+                    >
+                      {channelOptions.map((channel) => (
+                        <option key={channel} value={channel}>
+                          {channel}
                         </option>
                       ))}
-                  </select>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Estado</Label>
+                    <select
+                      id="status"
+                      value={dialog.form.status}
+                      onChange={(event) =>
+                        updateFormField(
+                          "status",
+                          event.target.value as ReservationActionStatus
+                        )
+                      }
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400"
+                    >
+                      {reservationStatuses
+                        .filter(
+                          (status): status is ReservationActionStatus =>
+                            status !== "Todas"
+                        )
+                        .map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="table-name">Mesa</Label>
+                    <Input
+                      id="table-name"
+                      value={dialog.form.tableName}
+                      onChange={(event) =>
+                        updateFormField("tableName", event.target.value)
+                      }
+                      placeholder="Mesa 12"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="birthday">Cumpleaños</Label>
+                    <Input
+                      id="birthday"
+                      value={dialog.form.birthday}
+                      onChange={(event) =>
+                        updateFormField("birthday", event.target.value)
+                      }
+                      placeholder="18 de julio"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="allergies">Alergias</Label>
+                    <Input
+                      id="allergies"
+                      value={dialog.form.allergies}
+                      onChange={(event) =>
+                        updateFormField("allergies", event.target.value)
+                      }
+                      placeholder="Gluten, frutos secos..."
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="preferences">Preferencias</Label>
+                    <Input
+                      id="preferences"
+                      value={dialog.form.preferences}
+                      onChange={(event) =>
+                        updateFormField("preferences", event.target.value)
+                      }
+                      placeholder="Mesa tranquila, ventana..."
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="comments">Comentarios</Label>
+                    <textarea
+                      id="comments"
+                      value={dialog.form.comments}
+                      onChange={(event) =>
+                        updateFormField("comments", event.target.value)
+                      }
+                      rows={4}
+                      className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                      placeholder="Notas internas sobre la reserva"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="table-name">Mesa</Label>
-                  <Input
-                    id="table-name"
-                    value={dialog.form.tableName}
-                    onChange={(event) =>
-                      updateFormField("tableName", event.target.value)
-                    }
-                    placeholder="Mesa 12"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="birthday">Cumpleaños</Label>
-                  <Input
-                    id="birthday"
-                    value={dialog.form.birthday}
-                    onChange={(event) =>
-                      updateFormField("birthday", event.target.value)
-                    }
-                    placeholder="18 de julio"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="allergies">Alergias</Label>
-                  <Input
-                    id="allergies"
-                    value={dialog.form.allergies}
-                    onChange={(event) =>
-                      updateFormField("allergies", event.target.value)
-                    }
-                    placeholder="Gluten, frutos secos..."
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="preferences">Preferencias</Label>
-                  <Input
-                    id="preferences"
-                    value={dialog.form.preferences}
-                    onChange={(event) =>
-                      updateFormField("preferences", event.target.value)
-                    }
-                    placeholder="Mesa tranquila, ventana..."
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="comments">Comentarios</Label>
-                  <textarea
-                    id="comments"
-                    value={dialog.form.comments}
-                    onChange={(event) =>
-                      updateFormField("comments", event.target.value)
-                    }
-                    rows={4}
-                    className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-                    placeholder="Notas internas sobre la reserva"
-                  />
-                </div>
-              </div>
 
-              {dialog.error ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  {dialog.error}
-                </div>
-              ) : null}
+                {dialog.error ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    {dialog.error}
+                  </div>
+                ) : null}
+              </form>
+            )}
+          </div>
 
-              <DialogFooter>
+          <div className="border-t border-slate-100 px-6 py-4">
+            {dialog.mode === "view" ? (
+              <DialogFooter className="justify-end">
+                <Button type="button" variant="outline" onClick={closeDialog}>
+                  Cerrar
+                </Button>
+              </DialogFooter>
+            ) : (
+              <DialogFooter className="justify-end">
                 <Button type="button" variant="outline" onClick={closeDialog}>
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" form="reservation-form">
                   {dialog.mode === "create" ? "Guardar reserva" : "Guardar cambios"}
                 </Button>
               </DialogFooter>
-            </form>
-          )}
-
-          {dialog.mode === "view" ? (
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
-                Cerrar
-              </Button>
-            </DialogFooter>
-          ) : null}
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
