@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import type { ReservationChannel as RestaurantReservationChannel } from "@/data/restaurant-ops";
 import {
@@ -881,7 +882,7 @@ export default function ReservationsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="channel">Canal *</Label>
-                    <select
+                    <NativeSelect
                       id="channel"
                       value={dialog.form.channel}
                       onChange={(event) =>
@@ -890,18 +891,18 @@ export default function ReservationsPage() {
                           event.target.value as ReservationChannel
                         )
                       }
-                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400"
+                      className="h-10 focus:border-slate-400"
                     >
                       {channelOptions.map((channel) => (
                         <option key={channel} value={channel}>
                           {channel}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Estado</Label>
-                    <select
+                    <NativeSelect
                       id="status"
                       value={dialog.form.status}
                       onChange={(event) =>
@@ -910,7 +911,7 @@ export default function ReservationsPage() {
                           event.target.value as ReservationActionStatus
                         )
                       }
-                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400"
+                      className="h-10 focus:border-slate-400"
                     >
                       {reservationStatuses
                         .filter(
@@ -922,7 +923,7 @@ export default function ReservationsPage() {
                             {status}
                           </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="table-name">Mesa</Label>
@@ -1010,7 +1011,7 @@ export default function ReservationsPage() {
 
                         <div className="space-y-2">
                           <Label htmlFor="correction-status">Selector manual de estado</Label>
-                          <select
+                          <NativeSelect
                             id="correction-status"
                             value={dialog.form.status}
                             onChange={(event) =>
@@ -1019,7 +1020,7 @@ export default function ReservationsPage() {
                                 event.target.value as ReservationActionStatus
                               )
                             }
-                            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400"
+                            className="h-11 focus:border-slate-400"
                           >
                             {reservationStatuses
                               .filter(
@@ -1031,7 +1032,7 @@ export default function ReservationsPage() {
                                   {status}
                                 </option>
                               ))}
-                          </select>
+                          </NativeSelect>
                           <p className="text-xs text-slate-500">
                             Úsalo para corregir errores como ocupada, cancelada o no-show por
                             equivocación.

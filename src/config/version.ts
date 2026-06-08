@@ -1,10 +1,11 @@
-export const APP_VERSION = "v 1.3.4";
+export const APP_VERSION = "v 1.3.5";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Dropdowns nativos con icono interno y padding corregido",
       "Correccion manual de estado disponible desde editar reserva",
       "Sincronizacion automatica de mesa al corregir reservas",
       "Flujo de reserva separado del estado manual de mesa",

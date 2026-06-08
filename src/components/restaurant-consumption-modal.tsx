@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Dialog,
   DialogContent,
@@ -235,7 +236,7 @@ export function RestaurantConsumptionModal({
                       <span className="text-sm font-medium text-slate-700">
                         Categoría
                       </span>
-                      <select
+                      <NativeSelect
                         value={draftCategory}
                         onChange={(event) => {
                           const nextCategory = event.target.value as (typeof categories)[number];
@@ -248,19 +249,19 @@ export function RestaurantConsumptionModal({
                           setDraftProductId(nextProduct?.id ?? "");
                           setDraftUnitPrice(nextProduct?.price ? String(nextProduct.price) : "");
                         }}
-                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-950 shadow-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/10"
+                        className="focus:border-violet-400 focus:ring-violet-500/10"
                       >
                         {availableCategories.map((category) => (
                           <option key={category} value={category}>
                             {category}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </label>
 
                     <label className="space-y-2">
                       <span className="text-sm font-medium text-slate-700">Producto</span>
-                      <select
+                      <NativeSelect
                         value={draftProductId}
                         onChange={(event) => {
                           const nextProduct = activeMenuItems.find(
@@ -275,14 +276,14 @@ export function RestaurantConsumptionModal({
                           setDraftCategory(nextProduct.category);
                           setDraftUnitPrice(nextProduct.price ? String(nextProduct.price) : "");
                         }}
-                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-950 shadow-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/10"
+                        className="focus:border-violet-400 focus:ring-violet-500/10"
                       >
                         {productsInCategory.map((product) => (
                           <option key={product.id} value={product.id}>
                             {product.name}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </label>
                   </div>
 
