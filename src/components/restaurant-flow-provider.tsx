@@ -417,6 +417,32 @@ function deriveStatusFromReservation(status: ReservationStatus): TableOverrideSt
   return "Libre";
 }
 
+function getSyncedTableStatus({
+  baseStatus,
+  overrideStatus,
+  activeReservation,
+}: {
+  baseStatus: TableOverrideStatus;
+  overrideStatus: TableOverrideStatus | undefined;
+  activeReservation: RestaurantReservation | null;
+}) {
+  if (activeReservation) {
+    return deriveStatusFromReservation(activeReservation.status);
+  }
+
+  const effectiveStatus = overrideStatus ?? baseStatus;
+
+  if (effectiveStatus === "Fuera de servicio") {
+    return effectiveStatus;
+  }
+
+  if (effectiveStatus === "Próxima reserva") {
+    return effectiveStatus;
+  }
+
+  return "Libre";
+}
+
 function preserveConsumptionItems(
   nextReservation: RestaurantReservation,
   currentReservation: RestaurantReservation | undefined
@@ -630,13 +656,11 @@ export function RestaurantFlowProvider({
     return restaurantTables.map((table) => {
       const activeReservation = getActiveReservationForTable(table.name);
       const overrideStatus = tableOverrides[table.id];
-
-      const status =
-        overrideStatus === "Fuera de servicio"
-          ? overrideStatus
-          : activeReservation
-            ? deriveStatusFromReservation(activeReservation.status)
-            : overrideStatus ?? table.status;
+      const status = getSyncedTableStatus({
+        baseStatus: table.status,
+        overrideStatus,
+        activeReservation,
+      });
 
       return {
         ...table,

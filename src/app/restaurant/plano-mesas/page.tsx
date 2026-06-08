@@ -54,7 +54,6 @@ export default function FloorPlanPage() {
   const router = useRouter();
   const {
     tables,
-    getReservationForTable,
     getActiveReservationForTable,
     getConsumptionItemsForReservation,
     updateTableStatus,
@@ -70,7 +69,7 @@ export default function FloorPlanPage() {
 
   const selectedTable = tables.find((table) => table.id === selectedTableId) ?? null;
   const selectedTableReservation = selectedTable
-    ? getReservationForTable(selectedTable.name)
+    ? getActiveReservationForTable(selectedTable.name)
     : null;
   const selectedTableReservationId = selectedTableReservation?.id ?? null;
   const selectedTableReservationStatus = selectedTableReservation?.status ?? null;
@@ -99,7 +98,9 @@ export default function FloorPlanPage() {
   }, [getOccupiedMinutesRemaining, selectedTable?.status, selectedTableReservation]);
 
   const detailTable = tables.find((table) => table.id === detailTableId) ?? null;
-  const detailReservation = detailTable ? getReservationForTable(detailTable.name) : null;
+  const detailReservation = detailTable
+    ? getActiveReservationForTable(detailTable.name)
+    : null;
   const detailReservationId = detailReservation?.id ?? null;
   const detailConsumptionItems = React.useMemo(
     () => getConsumptionItemsForReservation(detailReservationId),

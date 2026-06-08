@@ -1,10 +1,13 @@
-export const APP_VERSION = "v 1.7.0";
+export const APP_VERSION = "v 1.7.1";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Sincronizacion defensiva entre reservas y mesas al cargar el plano",
+      "Mesas ocupadas o reservadas sin reserva activa vuelven a Libre",
+      "Plano de mesas usa solo reservas activas para cliente y consumo",
       "Reportes funcionales con metricas reales sobre datos mock",
       "Filtros Hoy, Semana, Mes y Personalizado para analisis",
       "Exportacion mock a CSV y PDF desde la pantalla de reportes",
