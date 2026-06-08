@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { RestaurantConsumptionModal } from "@/components/restaurant-consumption-modal";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
-import type { RestaurantTable } from "@/types/domain";
+import type { ReservationStatus, RestaurantTable } from "@/types/domain";
 import { cn } from "@/lib/utils";
 
 const tableStateClasses: Record<RestaurantTable["status"], string> = {
@@ -54,9 +54,11 @@ export default function FloorPlanPage() {
   const router = useRouter();
   const {
     tables,
+    getReservationForTable,
     getActiveReservationForTable,
     getConsumptionItemsForReservation,
     updateTableStatus,
+    updateReservationStatus,
     saveConsumptionItems,
     openReservationDetail,
     standardReservationDurationMinutes,
@@ -68,9 +70,10 @@ export default function FloorPlanPage() {
 
   const selectedTable = tables.find((table) => table.id === selectedTableId) ?? null;
   const selectedTableReservation = selectedTable
-    ? getActiveReservationForTable(selectedTable.name)
+    ? getReservationForTable(selectedTable.name)
     : null;
   const selectedTableReservationId = selectedTableReservation?.id ?? null;
+  const selectedTableReservationStatus = selectedTableReservation?.status ?? null;
   const activeConsumptionItems = React.useMemo(
     () => getConsumptionItemsForReservation(selectedTableReservationId),
     [getConsumptionItemsForReservation, selectedTableReservationId]
@@ -96,7 +99,7 @@ export default function FloorPlanPage() {
   }, [getOccupiedMinutesRemaining, selectedTable?.status, selectedTableReservation]);
 
   const detailTable = tables.find((table) => table.id === detailTableId) ?? null;
-  const detailReservation = detailTable ? getActiveReservationForTable(detailTable.name) : null;
+  const detailReservation = detailTable ? getReservationForTable(detailTable.name) : null;
   const detailReservationId = detailReservation?.id ?? null;
   const detailConsumptionItems = React.useMemo(
     () => getConsumptionItemsForReservation(detailReservationId),
@@ -135,6 +138,14 @@ export default function FloorPlanPage() {
     setIsConsumptionOpen(true);
   }
 
+  function handleUpdateReservationFlow(nextStatus: ReservationStatus) {
+    if (!selectedTableReservation) {
+      return;
+    }
+
+    updateReservationStatus(selectedTableReservation.id, nextStatus);
+  }
+
   function handleSelectTable(tableId: string) {
     setSelectedTableId(tableId);
   }
@@ -167,46 +178,113 @@ export default function FloorPlanPage() {
             Ver reserva
           </Button>
 
-          <Button
-            variant="outline"
-            className="w-full justify-start rounded-2xl"
-            onClick={handleOpenConsumption}
-            disabled={selectedTable?.status !== "Ocupada" || !selectedTableReservation}
-            title={
-              selectedTable?.status !== "Ocupada"
-                ? "Solo se puede cargar consumo en mesas ocupadas."
-                : undefined
-            }
-          >
-            Agregar consumo
-          </Button>
-          {selectedTable?.status !== "Ocupada" ? (
-            <p className="text-xs text-slate-400">
-              Solo se puede cargar consumo en mesas ocupadas.
-            </p>
-          ) : null}
+          {selectedTableReservation ? (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Flujo de reserva
+                </p>
+                {selectedTableReservationStatus === "Pendiente" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600"
+                      onClick={() => handleUpdateReservationFlow("Confirmada")}
+                    >
+                      Confirmar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-2xl text-rose-600 hover:text-rose-700"
+                      onClick={() => handleUpdateReservationFlow("Cancelada")}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : null}
 
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-              Cambiar estado manual
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {manualStatuses.map((status) => (
-                <Button
-                  key={status}
-                  type="button"
-                  variant={selectedTable?.status === status ? "default" : "outline"}
-                  className="rounded-2xl"
-                  onClick={() => {
-                    if (!selectedTable) return;
-                    updateTableStatus(selectedTable.id, status);
-                  }}
-                >
-                  {status}
-                </Button>
-              ))}
+                {selectedTableReservationStatus === "Confirmada" ? (
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-violet-500 text-white hover:bg-violet-600"
+                      onClick={() => handleUpdateReservationFlow("Ocupada")}
+                    >
+                      Marcar ocupada
+                    </Button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-2xl text-rose-600 hover:text-rose-700"
+                        onClick={() => handleUpdateReservationFlow("Cancelada")}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-2xl text-slate-600 hover:text-slate-900"
+                        onClick={() => handleUpdateReservationFlow("No-show")}
+                      >
+                        No-show
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedTableReservationStatus === "Ocupada" ? (
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start rounded-2xl"
+                      onClick={handleOpenConsumption}
+                    >
+                      Agregar consumo
+                    </Button>
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() => handleUpdateReservationFlow("Completada")}
+                    >
+                      Cerrar mesa
+                    </Button>
+                  </div>
+                ) : null}
+
+                {selectedTableReservationStatus === "Completada" ||
+                selectedTableReservationStatus === "Cancelada" ||
+                selectedTableReservationStatus === "No-show" ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    Sin acciones disponibles.
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Cambiar estado manual
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {manualStatuses.map((status) => (
+                  <Button
+                    key={status}
+                    type="button"
+                    variant={selectedTable?.status === status ? "default" : "outline"}
+                    className="rounded-2xl"
+                    onClick={() => {
+                      if (!selectedTable) return;
+                      updateTableStatus(selectedTable.id, status);
+                    }}
+                  >
+                    {status}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
