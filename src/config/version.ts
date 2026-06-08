@@ -1,10 +1,14 @@
-export const APP_VERSION = "v 1.6.0";
+export const APP_VERSION = "v 1.7.0";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Reportes funcionales con metricas reales sobre datos mock",
+      "Filtros Hoy, Semana, Mes y Personalizado para analisis",
+      "Exportacion mock a CSV y PDF desde la pantalla de reportes",
+      "Top productos, canales y ocupacion calculados desde estado local",
       "Validacion de disponibilidad y conflictos de reservas",
       "Selector de mesas con disponibilidad visual y razones",
       "Errores claros al intentar guardar mesas ocupadas o reservadas",

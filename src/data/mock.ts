@@ -346,6 +346,7 @@ export const menuItems: MenuItem[] = [
     name: "Pinot Noir Reserva",
     description: "Etiqueta del Valle de Uco con perfil elegante y fresco.",
     image: "Vino",
+    price: 18900,
     active: true,
   },
   {
