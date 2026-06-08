@@ -36,7 +36,6 @@ import {
   Eye,
   Pencil,
   Plus,
-  SlidersHorizontal,
   SquareCheckBig,
   SquareDashedMousePointer,
   TimerReset,
@@ -764,10 +763,6 @@ export default function ReservationsPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" className="rounded-2xl">
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              Filtros
-            </Button>
             <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
               {rangeFilterOptions.map((option) => {
                 const isActive = selectedRangeFilter === option;
@@ -823,7 +818,10 @@ export default function ReservationsPage() {
                 />
               </div>
             ) : (
-              <Badge variant="outline" className="rounded-2xl px-3 py-2 text-sm">
+              <Badge
+                variant="outline"
+                className="inline-flex min-w-[190px] justify-center rounded-2xl px-3 py-2 text-sm"
+              >
                 <CalendarDays className="mr-2 h-4 w-4" />
                 {selectedRangeFilter === "Hoy"
                   ? formatDisplayDate(activeRange.from)
