@@ -13,12 +13,16 @@ type TableOverrideStatus = RestaurantTable["status"];
 type RestaurantFlowContextValue = {
   reservations: RestaurantReservation[];
   tables: RestaurantTable[];
+  standardReservationDurationMinutes: number;
+  intervalBetweenReservationsMinutes: number;
   saveReservation: (reservation: RestaurantReservation) => void;
   updateReservationStatus: (
     reservationId: string,
     nextStatus: ReservationStatus
   ) => void;
   updateTableStatus: (tableId: string, nextStatus: TableOverrideStatus) => void;
+  setStandardReservationDurationMinutes: (minutes: number) => void;
+  setIntervalBetweenReservationsMinutes: (minutes: number) => void;
   getReservationById: (reservationId: string | null) => RestaurantReservation | null;
   getActiveReservationForTable: (tableName: string) => RestaurantReservation | null;
   openReservationDetail: (reservationId: string) => void;
@@ -53,9 +57,30 @@ export function RestaurantFlowProvider({
   const [tableOverrides, setTableOverrides] = React.useState<
     Record<string, TableOverrideStatus>
   >({});
+  const [standardReservationDurationMinutes, setStandardReservationDurationMinutes] =
+    React.useState(90);
+  const [intervalBetweenReservationsMinutes, setIntervalBetweenReservationsMinutes] =
+    React.useState(15);
   const [focusedReservationId, setFocusedReservationId] = React.useState<string | null>(
     null
   );
+
+  React.useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setReservations((current) =>
+        current.map((reservation) =>
+          reservation.status === "Ocupada"
+            ? {
+                ...reservation,
+                occupiedMinutesElapsed: (reservation.occupiedMinutesElapsed ?? 0) + 1,
+              }
+            : reservation
+        )
+      );
+    }, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const getReservationById = React.useCallback(
     (reservationId: string | null) => {
@@ -105,11 +130,26 @@ export function RestaurantFlowProvider({
 
       if (exists) {
         return current.map((item) =>
-          item.id === reservation.id ? reservation : item
+          item.id === reservation.id
+            ? {
+                ...reservation,
+                occupiedMinutesElapsed:
+                  reservation.status === "Ocupada"
+                    ? item.occupiedMinutesElapsed ?? 0
+                    : undefined,
+              }
+            : item
         );
       }
 
-      return [reservation, ...current];
+      return [
+        {
+          ...reservation,
+          occupiedMinutesElapsed:
+            reservation.status === "Ocupada" ? 0 : undefined,
+        },
+        ...current,
+      ];
     });
   }, []);
 
@@ -121,7 +161,11 @@ export function RestaurantFlowProvider({
     setReservations((current) =>
       current.map((reservation) =>
         reservation.id === reservationId
-          ? { ...reservation, status: nextStatus }
+          ? {
+              ...reservation,
+              status: nextStatus,
+              occupiedMinutesElapsed: nextStatus === "Ocupada" ? 0 : undefined,
+            }
           : reservation
       )
     );
@@ -147,9 +191,13 @@ export function RestaurantFlowProvider({
     () => ({
       reservations,
       tables,
+      standardReservationDurationMinutes,
+      intervalBetweenReservationsMinutes,
       saveReservation,
       updateReservationStatus,
       updateTableStatus,
+      setStandardReservationDurationMinutes,
+      setIntervalBetweenReservationsMinutes,
       getReservationById,
       getActiveReservationForTable,
       openReservationDetail,
@@ -161,9 +209,13 @@ export function RestaurantFlowProvider({
       focusedReservationId,
       getActiveReservationForTable,
       getReservationById,
+      intervalBetweenReservationsMinutes,
       openReservationDetail,
       reservations,
       saveReservation,
+      setIntervalBetweenReservationsMinutes,
+      setStandardReservationDurationMinutes,
+      standardReservationDurationMinutes,
       updateReservationStatus,
       updateTableStatus,
       tables,

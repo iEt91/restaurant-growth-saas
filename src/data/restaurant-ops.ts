@@ -18,6 +18,7 @@ export type RestaurantReservation = {
   channel: ReservationChannel;
   status: ReservationStatus;
   tableName: string;
+  occupiedMinutesElapsed?: number;
 };
 
 export const restaurantReservations: RestaurantReservation[] = [
@@ -71,6 +72,7 @@ export const restaurantReservations: RestaurantReservation[] = [
     channel: "Teléfono",
     status: "Ocupada",
     tableName: "Mesa 03",
+    occupiedMinutesElapsed: 1,
   },
   {
     id: "res-4",

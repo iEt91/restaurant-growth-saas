@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const sections = [
@@ -127,9 +128,12 @@ function formatRange(start: string, end: string) {
 export default function SettingsPage() {
   const [autoConfirm, setAutoConfirm] = React.useState(true);
   const [waitlist, setWaitlist] = React.useState(true);
-  const [standardDuration, setStandardDuration] = React.useState("90 minutos");
-  const [intervalBetweenReservations, setIntervalBetweenReservations] =
-    React.useState("15 minutos");
+  const {
+    standardReservationDurationMinutes,
+    setStandardReservationDurationMinutes,
+    intervalBetweenReservationsMinutes,
+    setIntervalBetweenReservationsMinutes,
+  } = useRestaurantFlow();
   const [schedule, setSchedule] = React.useState<ScheduleByDay>(initialSchedule);
   const [editor, setEditor] = React.useState<EditorState>(initialEditorState);
   const nextBlockIdRef = React.useRef(1);
@@ -355,16 +359,28 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       <Label>Duracion estandar de reserva</Label>
                       <Input
-                        value={standardDuration}
-                        onChange={(event) => setStandardDuration(event.target.value)}
+                        type="number"
+                        min={30}
+                        step={5}
+                        value={standardReservationDurationMinutes}
+                        onChange={(event) =>
+                          setStandardReservationDurationMinutes(
+                            Number(event.target.value) || 0
+                          )
+                        }
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Intervalo entre reservas</Label>
                       <Input
-                        value={intervalBetweenReservations}
+                        type="number"
+                        min={0}
+                        step={5}
+                        value={intervalBetweenReservationsMinutes}
                         onChange={(event) =>
-                          setIntervalBetweenReservations(event.target.value)
+                          setIntervalBetweenReservationsMinutes(
+                            Number(event.target.value) || 0
+                          )
                         }
                       />
                     </div>

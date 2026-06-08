@@ -46,16 +46,23 @@ export default function FloorPlanPage() {
     getActiveReservationForTable,
     updateTableStatus,
     openReservationDetail,
+    standardReservationDurationMinutes,
   } = useRestaurantFlow();
-  const [selectedTableId, setSelectedTableId] = React.useState<string | null>(
-    () => tables[0]?.id ?? null
-  );
+  const [selectedTableId, setSelectedTableId] = React.useState<string | null>(null);
 
   const selectedTable =
     tables.find((table) => table.id === selectedTableId) ?? null;
   const activeReservation = selectedTable
     ? getActiveReservationForTable(selectedTable.name)
     : null;
+  const occupiedMinutesRemaining =
+    activeReservation && activeReservation.status === "Ocupada"
+      ? Math.max(
+          standardReservationDurationMinutes -
+            (activeReservation.occupiedMinutesElapsed ?? 0),
+          0
+        )
+      : null;
 
   function handleOpenReservation() {
     if (!activeReservation) {
@@ -142,6 +149,14 @@ export default function FloorPlanPage() {
                           Personas:{" "}
                           <span className="text-slate-950">{activeReservation.partySize}</span>
                         </p>
+                        {occupiedMinutesRemaining !== null ? (
+                          <p>
+                            Tiempo restante:{" "}
+                            <span className="text-slate-950">
+                              {occupiedMinutesRemaining} min
+                            </span>
+                          </p>
+                        ) : null}
                       </>
                     ) : null}
                   </div>
@@ -191,6 +206,17 @@ export default function FloorPlanPage() {
                           ? `${activeReservation.firstName} ${activeReservation.lastName}`
                           : "Libre"}
                       </div>
+                      {activeReservation?.status === "Ocupada" &&
+                      activeReservation.tableName === table.name ? (
+                        <div className="mt-1 text-[11px] font-medium opacity-90">
+                          {Math.max(
+                            standardReservationDurationMinutes -
+                              (activeReservation.occupiedMinutesElapsed ?? 0),
+                            0
+                          )}{" "}
+                          min restantes
+                        </div>
+                      ) : null}
                     </button>
                   ))}
                 </div>
