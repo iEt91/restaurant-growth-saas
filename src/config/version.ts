@@ -1,10 +1,14 @@
-export const APP_VERSION = "v 1.9.0";
+export const APP_VERSION = "v 2.0.0";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-09",
     notes: [
+      "Configuracion operativa conectada al estado local del restaurante",
+      "Horarios comerciales centralizados con validacion de duplicados y solapamientos",
+      "Duracion, intervalo, auto-confirmacion y lista de espera afectan reservas",
+      "Datos del restaurante actualizan el panel interno y sidebar",
       "Dashboard operativo conectado al estado local de reservas y mesas",
       "Metricas del dia actual calculadas con reservas, consumos y clientes reales",
       "Alertas, cumpleanos y ultimas reservas derivadas del flujo operativo",

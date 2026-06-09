@@ -1,4 +1,5 @@
-import { AppShell, type NavItem } from "@/components/app-shell";
+import type { NavItem } from "@/components/app-shell";
+import { RestaurantAppShell } from "@/components/restaurant-app-shell";
 import { RestaurantFlowProvider } from "@/components/restaurant-flow-provider";
 import type { ReactNode } from "react";
 
@@ -19,17 +20,7 @@ export default function RestaurantLayout({
 }>) {
   return (
     <RestaurantFlowProvider>
-      <AppShell
-        brand="Avenida 312"
-        title="Panel Restaurante"
-        subtitle="Operación diaria, reservas, clientes y menú."
-        nav={nav}
-        roleLabel="Dueño / Gerente"
-        userLabel="Sofía Martínez"
-        showHeader={false}
-      >
-        {children}
-      </AppShell>
+      <RestaurantAppShell nav={nav}>{children}</RestaurantAppShell>
     </RestaurantFlowProvider>
   );
 }

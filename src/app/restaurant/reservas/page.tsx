@@ -272,6 +272,8 @@ export default function ReservationsPage() {
     getReservationTableOptions,
     focusedReservationId,
     clearFocusedReservation,
+    autoConfirmReservations,
+    allowWaitlist,
   } = useRestaurantFlow();
   const currentDateKey = useCurrentDateKey();
   const effectiveTodayKey = currentDateKey ?? "";
@@ -366,6 +368,7 @@ export default function ReservationsPage() {
       form: {
         ...emptyFormState,
         date: suggestedDate,
+        status: autoConfirmReservations ? "Confirmada" : "Pendiente",
       },
       error: null,
       notice: null,
@@ -580,7 +583,20 @@ export default function ReservationsPage() {
       tableName: normalizeTableInputValue(dialog.form.tableName),
     };
 
-    const result = saveReservation(nextReservation);
+    let result = saveReservation(nextReservation);
+
+    if (
+      result.error &&
+      dialog.mode === "create" &&
+      autoConfirmReservations &&
+      allowWaitlist
+    ) {
+      result = saveReservation({
+        ...nextReservation,
+        status: "Pendiente",
+        tableName: "",
+      });
+    }
     if (result.error) {
       setDialog((current) => ({
         ...current,
@@ -918,7 +934,17 @@ export default function ReservationsPage() {
                         {reservation.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-center">{reservation.tableName}</td>
+                    <td className="px-4 py-3 text-center">
+                      {reservation.tableName ? (
+                        reservation.tableName
+                      ) : reservation.status === "Pendiente" ? (
+                        <Badge variant="warning" className="whitespace-nowrap">
+                          Lista de espera
+                        </Badge>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center">{reservation.channel}</td>
                     <td className="px-4 py-3">
                       <div className="flex min-h-10 w-full flex-wrap items-center justify-center gap-2">

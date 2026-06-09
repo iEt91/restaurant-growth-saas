@@ -24,8 +24,35 @@ import {
   isToday,
   normalizeDateKey,
 } from "@/lib/date-utils";
+import {
+  getReservationWindow,
+  type BusinessHourBlock,
+  windowsOverlap as timeWindowsOverlap,
+} from "@/lib/operation-time";
 
 type TableOverrideStatus = RestaurantTable["status"];
+export const businessDays = [
+  "Lunes",
+  "Martes",
+  "Miercoles",
+  "Jueves",
+  "Viernes",
+  "Sabado",
+  "Domingo",
+] as const;
+
+export type BusinessDayName = (typeof businessDays)[number];
+export type BusinessHours = Record<BusinessDayName, BusinessHourBlock[]>;
+
+export type RestaurantProfile = {
+  name: string;
+  city: string;
+  description: string;
+  cuisine: string;
+  phone: string;
+  email: string;
+  active: boolean;
+};
 
 type ReservationMutationResult = {
   reservation: RestaurantReservation | null;
@@ -49,12 +76,22 @@ type ReservationTableOption = {
 };
 
 type RestaurantFlowContextValue = {
+  restaurantProfile: RestaurantProfile;
+  businessHours: BusinessHours;
   customers: Customer[];
   reservations: RestaurantReservation[];
   tables: RestaurantTable[];
   menuItems: MenuItem[];
+  autoConfirmReservations: boolean;
+  allowWaitlist: boolean;
   standardReservationDurationMinutes: number;
   intervalBetweenReservationsMinutes: number;
+  updateRestaurantProfile: (profile: RestaurantProfile) => void;
+  saveBusinessHourBlock: (
+    day: BusinessDayName,
+    block: BusinessHourBlock
+  ) => void;
+  deleteBusinessHourBlock: (day: BusinessDayName, blockId: string) => void;
   saveCustomer: (customer: Customer) => void;
   saveReservation: (reservation: RestaurantReservation) => ReservationMutationResult;
   saveMenuItem: (menuItem: MenuItem) => void;
@@ -65,6 +102,8 @@ type RestaurantFlowContextValue = {
   ) => ReservationMutationResult;
   updateTableStatus: (tableId: string, nextStatus: TableOverrideStatus) => void;
   setMenuItemActive: (menuItemId: string, active: boolean) => void;
+  setAutoConfirmReservations: (enabled: boolean) => void;
+  setAllowWaitlist: (enabled: boolean) => void;
   setStandardReservationDurationMinutes: (minutes: number) => void;
   setIntervalBetweenReservationsMinutes: (minutes: number) => void;
   getReservationById: (reservationId: string | null) => RestaurantReservation | null;
@@ -95,6 +134,32 @@ const terminalReservationStatuses = new Set<ReservationStatus>([
   "Cancelada",
   "No-show",
 ]);
+
+const initialRestaurantProfile: RestaurantProfile = {
+  name: "Avenida 312",
+  city: "Buenos Aires",
+  description: "Restaurante contemporáneo con operación de salón y reservas.",
+  cuisine: "Contemporánea",
+  phone: "+54 11 5555-1101",
+  email: "hola@avenida312.com",
+  active: true,
+};
+
+const initialBusinessHours: BusinessHours = {
+  Lunes: [
+    { id: "mon-1", start: "08:00", end: "12:00" },
+    { id: "mon-2", start: "20:00", end: "00:00" },
+  ],
+  Martes: [],
+  Miercoles: [{ id: "wed-1", start: "12:00", end: "00:00" }],
+  Jueves: [{ id: "thu-1", start: "12:00", end: "00:00" }],
+  Viernes: [
+    { id: "fri-1", start: "12:00", end: "16:00" },
+    { id: "fri-2", start: "20:00", end: "01:00" },
+  ],
+  Sabado: [{ id: "sat-1", start: "12:00", end: "01:00" }],
+  Domingo: [{ id: "sun-1", start: "12:00", end: "23:00" }],
+};
 
 const FUTURE_OCCUPY_ERROR =
   "No podés ocupar una reserva futura. Esta acción estará disponible el día de la reserva.";
@@ -135,19 +200,23 @@ function buildCustomerName(firstName: string, lastName: string) {
 
 function parseReservationWindow(
   reservation: Pick<RestaurantReservation, "date" | "time">,
-  durationMinutes: number
+  durationMinutes: number,
+  intervalMinutes: number
 ) {
-  const start = parseTimeToMinutes(reservation.time);
+  const window = getReservationWindow(
+    reservation.time,
+    durationMinutes,
+    intervalMinutes
+  );
   const date = normalizeDateKey(reservation.date);
 
-  if (start === null || !date) {
+  if (!window || !date) {
     return null;
   }
 
   return {
     date,
-    start,
-    end: start + durationMinutes,
+    ...window,
   };
 }
 
@@ -161,7 +230,8 @@ function getReservationTableAvailability(
   table: RestaurantTable,
   reservation: ReservationDraft,
   reservations: RestaurantReservation[],
-  durationMinutes: number
+  durationMinutes: number,
+  intervalMinutes: number
 ) {
   if (table.status === "Fuera de servicio") {
     return {
@@ -177,7 +247,11 @@ function getReservationTableAvailability(
     };
   }
 
-  const candidateWindow = parseReservationWindow(reservation, durationMinutes);
+  const candidateWindow = parseReservationWindow(
+    reservation,
+    durationMinutes,
+    intervalMinutes
+  );
 
   if (!candidateWindow) {
     return {
@@ -219,13 +293,17 @@ function getReservationTableAvailability(
   }
 
   const hasConflict = blockingReservations.some((currentReservation) => {
-    const currentWindow = parseReservationWindow(currentReservation, durationMinutes);
+    const currentWindow = parseReservationWindow(
+      currentReservation,
+      durationMinutes,
+      intervalMinutes
+    );
 
     if (!currentWindow) {
       return false;
     }
 
-    return windowsOverlap(candidateWindow, currentWindow);
+    return reservationWindowsOverlap(candidateWindow, currentWindow);
   });
 
   if (hasConflict) {
@@ -245,14 +323,16 @@ function buildTableAvailabilityOptions(
   reservation: ReservationDraft,
   reservations: RestaurantReservation[],
   tables: RestaurantTable[],
-  durationMinutes: number
+  durationMinutes: number,
+  intervalMinutes: number
 ) {
   return sortTablesByCapacity(tables).map((table) => {
     const availability = getReservationTableAvailability(
       table,
       reservation,
       reservations,
-      durationMinutes
+      durationMinutes,
+      intervalMinutes
     );
 
     return {
@@ -274,11 +354,13 @@ function resolveReservationTableDecision({
   reservations,
   tables,
   durationMinutes,
+  intervalMinutes,
 }: {
   reservation: ReservationDraft;
   reservations: RestaurantReservation[];
   tables: RestaurantTable[];
   durationMinutes: number;
+  intervalMinutes: number;
 }) {
   const requestedTableName = normalizeTableName(reservation.tableName);
   const requestedTable = requestedTableName
@@ -290,7 +372,8 @@ function resolveReservationTableDecision({
       requestedTable,
       reservation,
       reservations,
-      durationMinutes
+      durationMinutes,
+      intervalMinutes
     );
 
     if (requestedAvailability.available) {
@@ -308,8 +391,15 @@ function resolveReservationTableDecision({
     };
   }
 
-  const nextAvailableTable = sortTablesByCapacity(tables).find((table) =>
-    getReservationTableAvailability(table, reservation, reservations, durationMinutes).available
+  const nextAvailableTable = sortTablesByCapacity(tables).find(
+    (table) =>
+      getReservationTableAvailability(
+        table,
+        reservation,
+        reservations,
+        durationMinutes,
+        intervalMinutes
+      ).available
   );
 
   if (nextAvailableTable) {
@@ -331,19 +421,7 @@ function buildReservationDateLabel(date: string) {
   return formatDisplayDate(date);
 }
 
-function parseTimeToMinutes(time: string) {
-  const [hoursRaw, minutesRaw] = time.split(":");
-  const hours = Number(hoursRaw);
-  const minutes = Number(minutesRaw);
-
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
-    return null;
-  }
-
-  return hours * 60 + minutes;
-}
-
-function windowsOverlap(
+function reservationWindowsOverlap(
   left: { date: string; start: number; end: number },
   right: { date: string; start: number; end: number }
 ) {
@@ -351,7 +429,7 @@ function windowsOverlap(
     return false;
   }
 
-  return left.start < right.end && right.start < left.end;
+  return timeWindowsOverlap(left, right);
 }
 
 function normalizeTableName(tableName: string) {
@@ -541,6 +619,12 @@ export function RestaurantFlowProvider({
   const [reservations, setReservations] = React.useState<RestaurantReservation[]>(
     restaurantReservations
   );
+  const [restaurantProfile, setRestaurantProfile] =
+    React.useState<RestaurantProfile>(initialRestaurantProfile);
+  const [businessHours, setBusinessHours] =
+    React.useState<BusinessHours>(initialBusinessHours);
+  const [autoConfirmReservations, setAutoConfirmReservations] = React.useState(true);
+  const [allowWaitlist, setAllowWaitlist] = React.useState(true);
   const [customerProfiles, setCustomerProfiles] = React.useState<Customer[]>(
     initialCustomerProfiles
   );
@@ -556,6 +640,49 @@ export function RestaurantFlowProvider({
     null
   );
   const todayDateKey = getTodayDateKey();
+
+  const updateRestaurantProfile = React.useCallback((profile: RestaurantProfile) => {
+    setRestaurantProfile(profile);
+  }, []);
+
+  const saveBusinessHourBlock = React.useCallback(
+    (day: BusinessDayName, block: BusinessHourBlock) => {
+      setBusinessHours((current) => {
+        const dayBlocks = current[day];
+        const exists = dayBlocks.some((currentBlock) => currentBlock.id === block.id);
+
+        return {
+          ...current,
+          [day]: exists
+            ? dayBlocks.map((currentBlock) =>
+                currentBlock.id === block.id ? block : currentBlock
+              )
+            : [...dayBlocks, block].sort((left, right) =>
+                left.start.localeCompare(right.start)
+              ),
+        };
+      });
+    },
+    []
+  );
+
+  const deleteBusinessHourBlock = React.useCallback(
+    (day: BusinessDayName, blockId: string) => {
+      setBusinessHours((current) => ({
+        ...current,
+        [day]: current[day].filter((block) => block.id !== blockId),
+      }));
+    },
+    []
+  );
+
+  const updateStandardReservationDurationMinutes = React.useCallback((minutes: number) => {
+    setStandardReservationDurationMinutes(Math.max(15, Math.round(minutes || 0)));
+  }, []);
+
+  const updateIntervalBetweenReservationsMinutes = React.useCallback((minutes: number) => {
+    setIntervalBetweenReservationsMinutes(Math.max(0, Math.round(minutes || 0)));
+  }, []);
 
   React.useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -773,6 +900,7 @@ export function RestaurantFlowProvider({
             reservations,
             tables,
             durationMinutes: standardReservationDurationMinutes,
+            intervalMinutes: intervalBetweenReservationsMinutes,
           })
         : {
             tableName: normalizeTableName(reservation.tableName),
@@ -785,6 +913,26 @@ export function RestaurantFlowProvider({
           reservation: null,
           warning: null,
           error: decision.error,
+        };
+      }
+
+      if (isBlockingReservationStatus(reservation.status) && !decision.tableName) {
+        return {
+          reservation: null,
+          warning: null,
+          error: "No hay mesas disponibles para este horario.",
+        };
+      }
+
+      if (
+        reservation.status === "Pendiente" &&
+        !decision.tableName &&
+        !allowWaitlist
+      ) {
+        return {
+          reservation: null,
+          warning: null,
+          error: "No hay mesas disponibles para este horario.",
         };
       }
 
@@ -833,11 +981,15 @@ export function RestaurantFlowProvider({
             ? null
             : decision.tableName
               ? "Mesa asignada automáticamente."
-              : "No se encontró mesa disponible automáticamente."),
+              : allowWaitlist
+                ? "Reserva pendiente sin mesa asignada. Queda en lista de espera."
+                : "No se encontró mesa disponible automáticamente."),
         error: null,
       };
     },
     [
+      allowWaitlist,
+      intervalBetweenReservationsMinutes,
       reservations,
       standardReservationDurationMinutes,
       syncCustomerProfileForReservation,
@@ -914,6 +1066,7 @@ export function RestaurantFlowProvider({
           reservations,
           tables,
           durationMinutes: standardReservationDurationMinutes,
+          intervalMinutes: intervalBetweenReservationsMinutes,
         });
 
         if (decision.error) {
@@ -924,11 +1077,14 @@ export function RestaurantFlowProvider({
           };
         }
 
-        if (nextStatus === "Ocupada" && !decision.tableName) {
+        if (isBlockingReservationStatus(nextStatus) && !decision.tableName) {
           return {
             reservation: null,
             warning: null,
-            error: "No se puede marcar como ocupada sin mesa asignada.",
+            error:
+              nextStatus === "Ocupada"
+                ? "No se puede marcar como ocupada sin mesa asignada."
+                : "No hay mesas disponibles para este horario.",
           };
         }
 
@@ -951,7 +1107,13 @@ export function RestaurantFlowProvider({
         error: null,
       };
     },
-    [reservations, standardReservationDurationMinutes, tables, todayDateKey]
+    [
+      intervalBetweenReservationsMinutes,
+      reservations,
+      standardReservationDurationMinutes,
+      tables,
+      todayDateKey,
+    ]
   );
 
   const getReservationTableOptions = React.useCallback(
@@ -960,9 +1122,15 @@ export function RestaurantFlowProvider({
         reservation,
         reservations,
         tables,
-        standardReservationDurationMinutes
+        standardReservationDurationMinutes,
+        intervalBetweenReservationsMinutes
       ),
-    [reservations, standardReservationDurationMinutes, tables]
+    [
+      intervalBetweenReservationsMinutes,
+      reservations,
+      standardReservationDurationMinutes,
+      tables,
+    ]
   );
 
   const saveConsumptionItems = React.useCallback(
@@ -1163,12 +1331,19 @@ export function RestaurantFlowProvider({
 
   const value = React.useMemo<RestaurantFlowContextValue>(
     () => ({
+      restaurantProfile,
+      businessHours,
       customers,
       reservations,
       tables,
       menuItems,
+      autoConfirmReservations,
+      allowWaitlist,
       standardReservationDurationMinutes,
       intervalBetweenReservationsMinutes,
+      updateRestaurantProfile,
+      saveBusinessHourBlock,
+      deleteBusinessHourBlock,
       saveCustomer,
       saveReservation,
       saveMenuItem,
@@ -1176,8 +1351,10 @@ export function RestaurantFlowProvider({
       updateReservationStatus,
       updateTableStatus,
       setMenuItemActive,
-      setStandardReservationDurationMinutes,
-      setIntervalBetweenReservationsMinutes,
+      setAutoConfirmReservations,
+      setAllowWaitlist,
+      setStandardReservationDurationMinutes: updateStandardReservationDurationMinutes,
+      setIntervalBetweenReservationsMinutes: updateIntervalBetweenReservationsMinutes,
       getReservationById,
       getReservationForTable,
       getActiveReservationForTable,
@@ -1189,8 +1366,12 @@ export function RestaurantFlowProvider({
       clearFocusedReservation,
     }),
     [
+      allowWaitlist,
+      autoConfirmReservations,
+      businessHours,
       clearFocusedReservation,
       customers,
+      deleteBusinessHourBlock,
       focusedReservationId,
       getActiveReservationForTable,
       getReservationById,
@@ -1201,16 +1382,19 @@ export function RestaurantFlowProvider({
       openReservationDetail,
       menuItems,
       reservations,
+      restaurantProfile,
+      saveBusinessHourBlock,
       saveCustomer,
       saveReservation,
       saveMenuItem,
       deleteMenuItem,
       saveConsumptionItems,
-      setIntervalBetweenReservationsMinutes,
       setMenuItemActive,
-      setStandardReservationDurationMinutes,
       standardReservationDurationMinutes,
       updateReservationStatus,
+      updateIntervalBetweenReservationsMinutes,
+      updateRestaurantProfile,
+      updateStandardReservationDurationMinutes,
       updateTableStatus,
       tables,
     ]

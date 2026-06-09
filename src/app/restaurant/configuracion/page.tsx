@@ -15,12 +15,23 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
+import {
+  businessDays,
+  type BusinessDayName,
+  type RestaurantProfile,
+  useRestaurantFlow,
+} from "@/components/restaurant-flow-provider";
+import { branches, users } from "@/data/mock";
 import { formatDisplayDate } from "@/lib/date-utils";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  type BusinessHourBlock,
+  validateBusinessHourBlock,
+} from "@/lib/operation-time";
+import { CheckCircle2, Pencil, Plus, Trash2 } from "lucide-react";
 
 const sections = [
   "Restaurante",
@@ -33,50 +44,14 @@ const sections = [
   "Pagina inicial",
 ] as const;
 
-const dayOrder = [
-  "Lunes",
-  "Martes",
-  "Miercoles",
-  "Jueves",
-  "Viernes",
-  "Sabado",
-  "Domingo",
-] as const;
-
-type DayName = (typeof dayOrder)[number];
-
-type ScheduleBlock = {
-  id: string;
-  start: string;
-  end: string;
-};
-
-type ScheduleByDay = Record<DayName, ScheduleBlock[]>;
-
 type EditorState = {
   open: boolean;
-  day: DayName;
+  day: BusinessDayName;
   mode: "add" | "edit";
   blockId: string | null;
   start: string;
   end: string;
   error: string | null;
-};
-
-const initialSchedule: ScheduleByDay = {
-  Lunes: [
-    { id: "mon-1", start: "08:00", end: "12:00" },
-    { id: "mon-2", start: "20:00", end: "00:00" },
-  ],
-  Martes: [],
-  Miercoles: [{ id: "wed-1", start: "12:00", end: "00:00" }],
-  Jueves: [{ id: "thu-1", start: "12:00", end: "00:00" }],
-  Viernes: [
-    { id: "fri-1", start: "12:00", end: "01:00" },
-    { id: "fri-2", start: "20:00", end: "01:00" },
-  ],
-  Sabado: [{ id: "sat-1", start: "12:00", end: "01:00" }],
-  Domingo: [{ id: "sun-1", start: "12:00", end: "23:00" }],
 };
 
 const initialEditorState: EditorState = {
@@ -89,57 +64,75 @@ const initialEditorState: EditorState = {
   error: null,
 };
 
-function timeToMinutes(value: string) {
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function validateScheduleBlock(start: string, end: string) {
-  if (!start || !end) {
-    return "Completá ambos horarios.";
-  }
-
-  if (start === end) {
-    return "La hora de inicio y fin no pueden ser iguales.";
-  }
-
-  const startMinutes = timeToMinutes(start);
-  const endMinutes = timeToMinutes(end);
-  const durationMinutes =
-    endMinutes >= startMinutes
-      ? endMinutes - startMinutes
-      : 24 * 60 - startMinutes + endMinutes;
-
-  if (durationMinutes <= 0) {
-    return "Revisá el rango horario.";
-  }
-
-  const isFullDay = start === "00:00" && end === "23:59";
-  if (!isFullDay && durationMinutes > 18 * 60) {
-    return "El bloque no puede superar las 18 horas.";
-  }
-
-  return null;
-}
-
 function formatRange(start: string, end: string) {
   return `${start} - ${end}`;
 }
 
+function getBranchStatusBadge(active: boolean) {
+  return active ? (
+    <Badge variant="success" className="rounded-full px-3 py-1">
+      Activa
+    </Badge>
+  ) : (
+    <Badge variant="secondary" className="rounded-full px-3 py-1">
+      Inactiva
+    </Badge>
+  );
+}
+
 export default function SettingsPage() {
-  const [autoConfirm, setAutoConfirm] = React.useState(true);
-  const [waitlist, setWaitlist] = React.useState(true);
   const {
+    restaurantProfile,
+    updateRestaurantProfile,
+    businessHours,
+    saveBusinessHourBlock,
+    deleteBusinessHourBlock,
+    autoConfirmReservations,
+    setAutoConfirmReservations,
+    allowWaitlist,
+    setAllowWaitlist,
     standardReservationDurationMinutes,
     setStandardReservationDurationMinutes,
     intervalBetweenReservationsMinutes,
     setIntervalBetweenReservationsMinutes,
   } = useRestaurantFlow();
-  const [schedule, setSchedule] = React.useState<ScheduleByDay>(initialSchedule);
+  const [profileForm, setProfileForm] =
+    React.useState<RestaurantProfile>(restaurantProfile);
+  const [profileNotice, setProfileNotice] = React.useState("Sin cambios pendientes.");
+  const [settingsNotice, setSettingsNotice] = React.useState("Configuración operativa activa.");
   const [editor, setEditor] = React.useState<EditorState>(initialEditorState);
   const nextBlockIdRef = React.useRef(1);
 
-  function openAddBlockDialog(day: DayName) {
+  const profileDirty = React.useMemo(
+    () => JSON.stringify(profileForm) !== JSON.stringify(restaurantProfile),
+    [profileForm, restaurantProfile]
+  );
+
+  function updateProfileField<K extends keyof RestaurantProfile>(
+    field: K,
+    value: RestaurantProfile[K]
+  ) {
+    setProfileForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    setProfileNotice("Cambios pendientes de guardar.");
+  }
+
+  function saveProfile() {
+    updateRestaurantProfile({
+      ...profileForm,
+      name: profileForm.name.trim() || restaurantProfile.name,
+      city: profileForm.city.trim(),
+      description: profileForm.description.trim(),
+      cuisine: profileForm.cuisine.trim(),
+      phone: profileForm.phone.trim(),
+      email: profileForm.email.trim(),
+    });
+    setProfileNotice("Configuración guardada correctamente.");
+  }
+
+  function openAddBlockDialog(day: BusinessDayName) {
     setEditor({
       open: true,
       day,
@@ -151,7 +144,7 @@ export default function SettingsPage() {
     });
   }
 
-  function openEditBlockDialog(day: DayName, block: ScheduleBlock) {
+  function openEditBlockDialog(day: BusinessDayName, block: BusinessHourBlock) {
     setEditor({
       open: true,
       day,
@@ -168,56 +161,70 @@ export default function SettingsPage() {
   }
 
   function saveBlock() {
-    const validationError = validateScheduleBlock(editor.start, editor.end);
+    const validationError = validateBusinessHourBlock({
+      start: editor.start,
+      end: editor.end,
+      existingBlocks: businessHours[editor.day],
+      editingBlockId: editor.blockId,
+    });
+
     if (validationError) {
       setEditor((current) => ({ ...current, error: validationError }));
       return;
     }
 
-    const nextBlock: ScheduleBlock = {
+    saveBusinessHourBlock(editor.day, {
       id:
         editor.mode === "edit" && editor.blockId
           ? editor.blockId
           : `block-${nextBlockIdRef.current++}`,
       start: editor.start,
       end: editor.end,
-    };
-
-    setSchedule((current) => {
-      const dayBlocks = current[editor.day];
-
-      if (editor.mode === "edit" && editor.blockId) {
-        return {
-          ...current,
-          [editor.day]: dayBlocks.map((block) =>
-            block.id === editor.blockId ? nextBlock : block
-          ),
-        };
-      }
-
-      return {
-        ...current,
-        [editor.day]: [...dayBlocks, nextBlock],
-      };
     });
-
+    setSettingsNotice("Horario comercial guardado correctamente.");
     closeEditor();
   }
 
-  function deleteBlock(day: DayName, blockId: string) {
-    setSchedule((current) => ({
-      ...current,
-      [day]: current[day].filter((block) => block.id !== blockId),
-    }));
+  function removeBlock(day: BusinessDayName, blockId: string) {
+    deleteBusinessHourBlock(day, blockId);
+    setSettingsNotice("Bloque horario eliminado. El día se mantiene disponible.");
+  }
+
+  function updateAutoConfirm(enabled: boolean) {
+    setAutoConfirmReservations(enabled);
+    setSettingsNotice(
+      enabled
+        ? "Las reservas nuevas intentarán confirmarse automáticamente si hay mesa."
+        : "Las reservas nuevas quedarán pendientes por defecto."
+    );
+  }
+
+  function updateWaitlist(enabled: boolean) {
+    setAllowWaitlist(enabled);
+    setSettingsNotice(
+      enabled
+        ? "Lista de espera activa para reservas sin mesa disponible."
+        : "Sin lista de espera: se bloquearán reservas sin mesa disponible."
+    );
+  }
+
+  function updateDuration(value: string) {
+    setStandardReservationDurationMinutes(Number(value) || 90);
+    setSettingsNotice("Duración estándar aplicada a reservas y plano de mesas.");
+  }
+
+  function updateInterval(value: string) {
+    setIntervalBetweenReservationsMinutes(Number(value) || 0);
+    setSettingsNotice("Intervalo entre reservas aplicado a disponibilidad de mesas.");
   }
 
   return (
     <div className="space-y-5">
       <Card>
         <CardHeader className="border-b border-slate-100 pb-4">
-          <CardTitle>Configuracion</CardTitle>
+          <CardTitle>Configuración</CardTitle>
           <p className="text-sm text-slate-500">
-            Tabs horizontales y layout dividido entre horarios y reservas.
+            Parámetros reales para operación diaria, reservas y plano de mesas.
           </p>
         </CardHeader>
         <CardContent className="pt-4">
@@ -234,6 +241,112 @@ export default function SettingsPage() {
               ))}
             </TabsList>
 
+            <TabsContent value="Restaurante">
+              <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Datos del restaurante</CardTitle>
+                    <p className="text-sm text-slate-500">
+                      Estos datos alimentan el panel interno y el sidebar del restaurante.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Nombre del restaurante</Label>
+                        <Input
+                          value={profileForm.name}
+                          onChange={(event) => updateProfileField("name", event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Ciudad / ubicación</Label>
+                        <Input
+                          value={profileForm.city}
+                          onChange={(event) => updateProfileField("city", event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tipo de cocina</Label>
+                        <Input
+                          value={profileForm.cuisine}
+                          onChange={(event) => updateProfileField("cuisine", event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Teléfono</Label>
+                        <Input
+                          value={profileForm.phone}
+                          onChange={(event) => updateProfileField("phone", event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <Input
+                          value={profileForm.email}
+                          onChange={(event) => updateProfileField("email", event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Estado</Label>
+                        <NativeSelect
+                          value={profileForm.active ? "activo" : "inactivo"}
+                          onChange={(event) =>
+                            updateProfileField("active", event.target.value === "activo")
+                          }
+                        >
+                          <option value="activo">Activo</option>
+                          <option value="inactivo">Inactivo</option>
+                        </NativeSelect>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Descripción breve</Label>
+                      <textarea
+                        value={profileForm.description}
+                        onChange={(event) =>
+                          updateProfileField("description", event.target.value)
+                        }
+                        className="min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-950 shadow-sm outline-none transition-colors focus:border-slate-400 focus:ring-2 focus:ring-slate-950/10"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-3 rounded-3xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-slate-600">{profileNotice}</p>
+                      <Button
+                        className="rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700"
+                        disabled={!profileDirty}
+                        onClick={saveProfile}
+                      >
+                        Guardar restaurante
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Vista previa</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="rounded-[28px] bg-slate-950 p-5 text-white">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                        Restaurant Growth SaaS
+                      </p>
+                      <p className="mt-3 text-2xl font-semibold">{profileForm.name}</p>
+                      <p className="mt-2 text-sm text-slate-300">
+                        {profileForm.cuisine} · {profileForm.city}
+                      </p>
+                    </div>
+                    <Badge variant={profileForm.active ? "success" : "secondary"}>
+                      {profileForm.active ? "Activo" : "Inactivo"}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
             <TabsContent value="Horarios">
               <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
                 <Card>
@@ -241,16 +354,16 @@ export default function SettingsPage() {
                     <div>
                       <CardTitle>Horarios comerciales</CardTitle>
                       <p className="mt-1 text-sm text-slate-500">
-                        Cada día puede tener más de un bloque horario.
+                        Cada día puede tener cero, uno o múltiples bloques horarios.
                       </p>
                     </div>
                     <Badge variant="outline" className="rounded-full px-3 py-1">
-                      {APP_VERSION}
+                      Estado local
                     </Badge>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {dayOrder.map((day) => {
-                      const blocks = schedule[day];
+                    {businessDays.map((day) => {
+                      const blocks = businessHours[day];
 
                       return (
                         <div
@@ -283,7 +396,7 @@ export default function SettingsPage() {
                                   key={block.id}
                                   className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                                 >
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex flex-wrap items-center gap-3">
                                     <div className="rounded-full bg-white px-3 py-1 text-sm font-medium text-slate-800">
                                       {formatRange(block.start, block.end)}
                                     </div>
@@ -311,7 +424,7 @@ export default function SettingsPage() {
                                       size="sm"
                                       variant="ghost"
                                       className="h-8 rounded-xl px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                                      onClick={() => deleteBlock(day, block.id)}
+                                      onClick={() => removeBlock(day, block.id)}
                                     >
                                       <Trash2 className="mr-2 h-3.5 w-3.5" />
                                       Eliminar
@@ -333,17 +446,25 @@ export default function SettingsPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Configuracion de reservas</CardTitle>
+                    <CardTitle>Configuración de reservas</CardTitle>
+                    <p className="text-sm text-slate-500">
+                      Estos valores afectan disponibilidad, autoasignación y contador.
+                    </p>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                      <CheckCircle2 className="mr-2 inline h-4 w-4" />
+                      {settingsNotice}
+                    </div>
+
                     <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4">
                       <div>
                         <p className="font-medium text-slate-950">
-                          Confirmar automaticamente
+                          Confirmar automáticamente
                         </p>
                         <p className="text-sm text-slate-500">Si hay disponibilidad</p>
                       </div>
-                      <Switch checked={autoConfirm} onCheckedChange={setAutoConfirm} />
+                      <Switch checked={autoConfirmReservations} onCheckedChange={updateAutoConfirm} />
                     </div>
 
                     <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4">
@@ -353,21 +474,17 @@ export default function SettingsPage() {
                         </p>
                         <p className="text-sm text-slate-500">Para horarios completos</p>
                       </div>
-                      <Switch checked={waitlist} onCheckedChange={setWaitlist} />
+                      <Switch checked={allowWaitlist} onCheckedChange={updateWaitlist} />
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Duracion estandar de reserva</Label>
+                      <Label>Duración estándar de reserva</Label>
                       <Input
                         type="number"
-                        min={30}
+                        min={15}
                         step={5}
                         value={standardReservationDurationMinutes}
-                        onChange={(event) =>
-                          setStandardReservationDurationMinutes(
-                            Number(event.target.value) || 0
-                          )
-                        }
+                        onChange={(event) => updateDuration(event.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
@@ -377,11 +494,7 @@ export default function SettingsPage() {
                         min={0}
                         step={5}
                         value={intervalBetweenReservationsMinutes}
-                        onChange={(event) =>
-                          setIntervalBetweenReservationsMinutes(
-                            Number(event.target.value) || 0
-                          )
-                        }
+                        onChange={(event) => updateInterval(event.target.value)}
                       />
                     </div>
                   </CardContent>
@@ -390,52 +503,110 @@ export default function SettingsPage() {
             </TabsContent>
 
             <TabsContent value="Reservas">
-              <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Configuracion general</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                      Vista base lista para seguir creciendo con reglas reales.
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Reservas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4">
-                      <div>
-                        <p className="font-medium text-slate-950">
-                          Confirmar automaticamente
-                        </p>
-                        <p className="text-sm text-slate-500">Si hay disponibilidad</p>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Reglas de reservas</CardTitle>
+                  <p className="text-sm text-slate-500">
+                    Resumen de cómo se comportan las reservas nuevas.
+                  </p>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="font-semibold text-slate-950">Estado inicial</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {autoConfirmReservations
+                        ? "Confirmada si hay mesa disponible; pendiente si entra en lista de espera."
+                        : "Pendiente por defecto hasta confirmación manual."}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="font-semibold text-slate-950">Disponibilidad</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Duración {standardReservationDurationMinutes} min + intervalo{" "}
+                      {intervalBetweenReservationsMinutes} min.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="Sucursales">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sucursales</CardTitle>
+                  <p className="text-sm text-slate-500">
+                    Lista local preparada para conectar a Supabase más adelante.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {branches.length ? (
+                    branches.map((branch, index) => (
+                      <div
+                        key={branch.id}
+                        className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <p className="font-semibold text-slate-950">{branch.name}</p>
+                          <p className="text-sm text-slate-500">
+                            {branch.address} · {branch.city}
+                          </p>
+                          <p className="text-xs text-slate-400">{branch.openingHours}</p>
+                        </div>
+                        {getBranchStatusBadge(index !== 2)}
                       </div>
-                      <Switch checked={autoConfirm} onCheckedChange={setAutoConfirm} />
+                    ))
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                      Sin sucursales cargadas.
                     </div>
-                    <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4">
-                      <div>
-                        <p className="font-medium text-slate-950">
-                          Permitir lista de espera
-                        </p>
-                        <p className="text-sm text-slate-500">Para horarios completos</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="Usuarios">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Usuarios</CardTitle>
+                  <p className="text-sm text-slate-500">
+                    Visual local sin permisos reales todavía.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {users.length ? (
+                    users.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <p className="font-semibold text-slate-950">{user.fullName}</p>
+                          <p className="text-sm text-slate-500">{user.email}</p>
+                        </div>
+                        <Badge variant={user.active ? "success" : "secondary"}>
+                          {user.role}
+                        </Badge>
                       </div>
-                      <Switch checked={waitlist} onCheckedChange={setWaitlist} />
+                    ))
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                      Sin usuarios configurados.
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {sections
-              .filter((section) => section !== "Horarios" && section !== "Reservas")
+              .filter(
+                (section) =>
+                  !["Restaurante", "Horarios", "Reservas", "Sucursales", "Usuarios"].includes(section)
+              )
               .map((section) => (
                 <TabsContent key={section} value={section}>
                   <Card>
                     <CardContent className="p-5 text-sm text-slate-500">
-                      Seccion {section} lista para seguir creciendo en Sprint 2.
+                      Sección {section} lista para seguir creciendo sin conectar Supabase todavía.
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -447,7 +618,7 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-3 rounded-[28px] border border-slate-200 bg-slate-50 p-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-400">
-                Version
+                Versión
               </p>
               <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
                 {APP_VERSION}
@@ -457,7 +628,7 @@ export default function SettingsPage() {
               </p>
             </div>
             <Badge variant="outline" className="w-fit">
-              Ultima actualizacion: {formatDisplayDate(VERSION_HISTORY[0].date)}
+              Última actualización: {formatDisplayDate(VERSION_HISTORY[0].date)}
             </Badge>
           </div>
         </CardContent>
@@ -477,7 +648,7 @@ export default function SettingsPage() {
               {editor.mode === "add" ? "Agregar bloque horario" : "Editar bloque horario"}
             </DialogTitle>
             <DialogDescription>
-              {editor.day} - definí hora de inicio y fin para este bloque.
+              {editor.day} · definí hora de inicio y fin para este bloque.
             </DialogDescription>
           </DialogHeader>
 
