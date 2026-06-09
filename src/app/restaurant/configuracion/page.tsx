@@ -43,9 +43,7 @@ const sections = [
   "Horarios",
   "Reservas",
   "Plano",
-  "Menu",
   "Usuarios",
-  "Pagina inicial",
 ] as const;
 
 type EditorState = {
@@ -366,7 +364,7 @@ export default function SettingsPage() {
           </p>
         </CardHeader>
         <CardContent className="pt-4">
-          <Tabs defaultValue="Horarios">
+          <Tabs defaultValue="Restaurante">
             <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-2 rounded-[24px] bg-slate-100 p-2">
               {sections.map((section) => (
                 <TabsTrigger

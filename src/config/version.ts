@@ -1,10 +1,11 @@
-export const APP_VERSION = "v 2.0.3";
+export const APP_VERSION = "v 2.0.4";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-09",
     notes: [
+      "Limpieza de tabs internas duplicadas en Configuracion",
       "Reportes alineados al periodo activo sin mezclar Hoy, Semana y Mes",
       "Cards principales de reportes calculadas sobre el rango seleccionado",
       "Cierre de estabilidad de flujos operativos del sprint",
