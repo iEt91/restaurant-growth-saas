@@ -26,6 +26,9 @@ import {
 } from "@/lib/date-utils";
 import {
   getReservationWindow,
+  normalizeMinuteSetting,
+  reservationDurationConstraints,
+  reservationIntervalConstraints,
   type BusinessHourBlock,
   windowsOverlap as timeWindowsOverlap,
 } from "@/lib/operation-time";
@@ -633,9 +636,9 @@ export function RestaurantFlowProvider({
     Record<string, TableOverrideStatus>
   >({});
   const [standardReservationDurationMinutes, setStandardReservationDurationMinutes] =
-    React.useState(90);
+    React.useState(reservationDurationConstraints.defaultValue);
   const [intervalBetweenReservationsMinutes, setIntervalBetweenReservationsMinutes] =
-    React.useState(15);
+    React.useState(reservationIntervalConstraints.defaultValue);
   const [focusedReservationId, setFocusedReservationId] = React.useState<string | null>(
     null
   );
@@ -677,11 +680,15 @@ export function RestaurantFlowProvider({
   );
 
   const updateStandardReservationDurationMinutes = React.useCallback((minutes: number) => {
-    setStandardReservationDurationMinutes(Math.max(15, Math.round(minutes || 0)));
+    setStandardReservationDurationMinutes(
+      normalizeMinuteSetting(minutes, reservationDurationConstraints)
+    );
   }, []);
 
   const updateIntervalBetweenReservationsMinutes = React.useCallback((minutes: number) => {
-    setIntervalBetweenReservationsMinutes(Math.max(0, Math.round(minutes || 0)));
+    setIntervalBetweenReservationsMinutes(
+      normalizeMinuteSetting(minutes, reservationIntervalConstraints)
+    );
   }, []);
 
   React.useEffect(() => {

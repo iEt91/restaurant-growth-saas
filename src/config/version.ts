@@ -1,10 +1,12 @@
-export const APP_VERSION = "v 2.0.0";
+export const APP_VERSION = "v 2.0.1";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-09",
     notes: [
+      "Confirmacion obligatoria para cambios de duracion e intervalo operativo",
+      "Duracion e intervalo normalizados con limites seguros y pasos de 5 minutos",
       "Configuracion operativa conectada al estado local del restaurante",
       "Horarios comerciales centralizados con validacion de duplicados y solapamientos",
       "Duracion, intervalo, auto-confirmacion y lista de espera afectan reservas",

@@ -9,7 +9,40 @@ export type BusinessHourBlock = {
   end: string;
 };
 
+export type MinuteSettingConstraints = {
+  min: number;
+  max: number;
+  step: number;
+  defaultValue: number;
+};
+
+export const reservationDurationConstraints: MinuteSettingConstraints = {
+  min: 30,
+  max: 240,
+  step: 5,
+  defaultValue: 90,
+};
+
+export const reservationIntervalConstraints: MinuteSettingConstraints = {
+  min: 5,
+  max: 120,
+  step: 5,
+  defaultValue: 15,
+};
+
 const minutesPerDay = 24 * 60;
+
+export function normalizeMinuteSetting(
+  value: number,
+  constraints: MinuteSettingConstraints
+) {
+  if (!Number.isFinite(value)) {
+    return constraints.defaultValue;
+  }
+
+  const roundedToStep = Math.round(value / constraints.step) * constraints.step;
+  return Math.min(Math.max(roundedToStep, constraints.min), constraints.max);
+}
 
 export function parseTimeToMinutes(time: string) {
   const [hoursRaw, minutesRaw] = time.split(":");

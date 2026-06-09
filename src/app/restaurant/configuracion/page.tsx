@@ -29,7 +29,11 @@ import { branches, users } from "@/data/mock";
 import { formatDisplayDate } from "@/lib/date-utils";
 import {
   type BusinessHourBlock,
+  normalizeMinuteSetting,
+  reservationDurationConstraints,
+  reservationIntervalConstraints,
   validateBusinessHourBlock,
+  type MinuteSettingConstraints,
 } from "@/lib/operation-time";
 import { CheckCircle2, Pencil, Plus, Trash2 } from "lucide-react";
 
@@ -54,6 +58,11 @@ type EditorState = {
   error: string | null;
 };
 
+type OperationalSettingsDraft = {
+  durationMinutes: number;
+  intervalMinutes: number;
+};
+
 const initialEditorState: EditorState = {
   open: false,
   day: "Lunes",
@@ -63,6 +72,42 @@ const initialEditorState: EditorState = {
   end: "12:00",
   error: null,
 };
+
+function parseOperationalMinuteInput(
+  rawValue: string,
+  label: string,
+  constraints: MinuteSettingConstraints
+) {
+  const trimmedValue = rawValue.trim();
+
+  if (!trimmedValue) {
+    return {
+      value: null,
+      error: `${label} es obligatorio.`,
+      notice: null,
+    };
+  }
+
+  if (!/^\d+$/.test(trimmedValue)) {
+    return {
+      value: null,
+      error: `${label} debe ser un número entero en minutos.`,
+      notice: null,
+    };
+  }
+
+  const numericValue = Number(trimmedValue);
+  const normalizedValue = normalizeMinuteSetting(numericValue, constraints);
+
+  return {
+    value: normalizedValue,
+    error: null,
+    notice:
+      normalizedValue !== numericValue
+        ? `${label} se ajustó a ${normalizedValue} min para respetar rango y múltiplos de ${constraints.step}.`
+        : null,
+  };
+}
 
 function formatRange(start: string, end: string) {
   return `${start} - ${end}`;
@@ -101,6 +146,17 @@ export default function SettingsPage() {
   const [profileNotice, setProfileNotice] = React.useState("Sin cambios pendientes.");
   const [settingsNotice, setSettingsNotice] = React.useState("Configuración operativa activa.");
   const [editor, setEditor] = React.useState<EditorState>(initialEditorState);
+  const [durationInput, setDurationInput] = React.useState(
+    String(standardReservationDurationMinutes)
+  );
+  const [intervalInput, setIntervalInput] = React.useState(
+    String(intervalBetweenReservationsMinutes)
+  );
+  const [durationError, setDurationError] = React.useState<string | null>(null);
+  const [intervalError, setIntervalError] = React.useState<string | null>(null);
+  const [pendingOperationalSettings, setPendingOperationalSettings] =
+    React.useState<OperationalSettingsDraft | null>(null);
+  const [confirmSettingsOpen, setConfirmSettingsOpen] = React.useState(false);
   const nextBlockIdRef = React.useRef(1);
 
   const profileDirty = React.useMemo(
@@ -208,14 +264,96 @@ export default function SettingsPage() {
     );
   }
 
-  function updateDuration(value: string) {
-    setStandardReservationDurationMinutes(Number(value) || 90);
-    setSettingsNotice("Duración estándar aplicada a reservas y plano de mesas.");
+  function resetOperationalInputs() {
+    setDurationInput(String(standardReservationDurationMinutes));
+    setIntervalInput(String(intervalBetweenReservationsMinutes));
+    setDurationError(null);
+    setIntervalError(null);
   }
 
-  function updateInterval(value: string) {
-    setIntervalBetweenReservationsMinutes(Number(value) || 0);
-    setSettingsNotice("Intervalo entre reservas aplicado a disponibilidad de mesas.");
+  function updateDurationDraft(value: string) {
+    if (!/^\d*$/.test(value)) {
+      setDurationError("La duración debe ser un número entero en minutos.");
+      return;
+    }
+
+    setDurationInput(value);
+    setDurationError(null);
+  }
+
+  function updateIntervalDraft(value: string) {
+    if (!/^\d*$/.test(value)) {
+      setIntervalError("El intervalo debe ser un número entero en minutos.");
+      return;
+    }
+
+    setIntervalInput(value);
+    setIntervalError(null);
+  }
+
+  function prepareOperationalSettingsConfirmation() {
+    const nextDuration = parseOperationalMinuteInput(
+      durationInput,
+      "La duración estándar",
+      reservationDurationConstraints
+    );
+    const nextInterval = parseOperationalMinuteInput(
+      intervalInput,
+      "El intervalo entre reservas",
+      reservationIntervalConstraints
+    );
+
+    setDurationError(nextDuration.error);
+    setIntervalError(nextInterval.error);
+
+    if (!nextDuration.value || !nextInterval.value) {
+      return;
+    }
+
+    setDurationInput(String(nextDuration.value));
+    setIntervalInput(String(nextInterval.value));
+
+    const notice = [nextDuration.notice, nextInterval.notice].filter(Boolean).join(" ");
+    if (notice) {
+      setSettingsNotice(notice);
+    }
+
+    if (
+      nextDuration.value === standardReservationDurationMinutes &&
+      nextInterval.value === intervalBetweenReservationsMinutes
+    ) {
+      setSettingsNotice("Sin cambios operativos pendientes.");
+      return;
+    }
+
+    setPendingOperationalSettings({
+      durationMinutes: nextDuration.value,
+      intervalMinutes: nextInterval.value,
+    });
+    setConfirmSettingsOpen(true);
+  }
+
+  function cancelOperationalSettingsConfirmation() {
+    setConfirmSettingsOpen(false);
+    setPendingOperationalSettings(null);
+    resetOperationalInputs();
+    setSettingsNotice("Cambio operativo cancelado. Se restauraron los valores anteriores.");
+  }
+
+  function confirmOperationalSettingsChange() {
+    if (!pendingOperationalSettings) {
+      return;
+    }
+
+    setStandardReservationDurationMinutes(pendingOperationalSettings.durationMinutes);
+    setIntervalBetweenReservationsMinutes(pendingOperationalSettings.intervalMinutes);
+    setDurationInput(String(pendingOperationalSettings.durationMinutes));
+    setIntervalInput(String(pendingOperationalSettings.intervalMinutes));
+    setPendingOperationalSettings(null);
+    setConfirmSettingsOpen(false);
+    setSettingsNotice(
+      "Cambios operativos confirmados. Disponibilidad, autoasignación y contador usan estos valores."
+    );
   }
 
   return (
@@ -478,25 +616,68 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Duración estándar de reserva</Label>
-                      <Input
-                        type="number"
-                        min={15}
-                        step={5}
-                        value={standardReservationDurationMinutes}
-                        onChange={(event) => updateDuration(event.target.value)}
-                      />
+                      <Label htmlFor="reservation-duration">
+                        Duración estándar de reserva
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="reservation-duration"
+                          type="number"
+                          inputMode="numeric"
+                          min={reservationDurationConstraints.min}
+                          max={reservationDurationConstraints.max}
+                          step={reservationDurationConstraints.step}
+                          value={durationInput}
+                          onBlur={prepareOperationalSettingsConfirmation}
+                          onChange={(event) => updateDurationDraft(event.target.value)}
+                          className="pr-16"
+                        />
+                        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">
+                          min
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Mín. 30 · Máx. 240 · Avanza de 5 en 5.
+                      </p>
+                      {durationError ? (
+                        <p className="text-sm text-rose-600">{durationError}</p>
+                      ) : null}
                     </div>
                     <div className="space-y-2">
-                      <Label>Intervalo entre reservas</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={5}
-                        value={intervalBetweenReservationsMinutes}
-                        onChange={(event) => updateInterval(event.target.value)}
-                      />
+                      <Label htmlFor="reservation-interval">
+                        Intervalo entre reservas
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="reservation-interval"
+                          type="number"
+                          inputMode="numeric"
+                          min={reservationIntervalConstraints.min}
+                          max={reservationIntervalConstraints.max}
+                          step={reservationIntervalConstraints.step}
+                          value={intervalInput}
+                          onBlur={prepareOperationalSettingsConfirmation}
+                          onChange={(event) => updateIntervalDraft(event.target.value)}
+                          className="pr-16"
+                        />
+                        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">
+                          min
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Mín. 5 · Máx. 120 · Avanza de 5 en 5.
+                      </p>
+                      {intervalError ? (
+                        <p className="text-sm text-rose-600">{intervalError}</p>
+                      ) : null}
                     </div>
+                    <Button
+                      type="button"
+                      className="w-full rounded-2xl bg-violet-600 text-white hover:bg-violet-700"
+                      onClick={prepareOperationalSettingsConfirmation}
+                    >
+                      Aplicar cambios operativos
+                    </Button>
                   </CardContent>
                 </Card>
               </div>
@@ -699,6 +880,76 @@ export default function SettingsPage() {
             </Button>
             <Button type="button" onClick={saveBlock}>
               Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmSettingsOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            cancelOperationalSettingsConfirmation();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar cambio operativo</DialogTitle>
+            <DialogDescription>
+              Este cambio puede afectar la disponibilidad de mesas, la asignación automática de reservas y el cálculo del tiempo restante en el plano de mesas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-2">
+            <div className="rounded-2xl bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                Duración estándar actual
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-slate-950">
+                {standardReservationDurationMinutes} min
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                Nueva duración estándar
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-slate-950">
+                {pendingOperationalSettings?.durationMinutes ?? standardReservationDurationMinutes} min
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                Intervalo actual
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-slate-950">
+                {intervalBetweenReservationsMinutes} min
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                Nuevo intervalo
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-slate-950">
+                {pendingOperationalSettings?.intervalMinutes ?? intervalBetweenReservationsMinutes} min
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={cancelOperationalSettingsConfirmation}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="bg-violet-600 text-white hover:bg-violet-700"
+              onClick={confirmOperationalSettingsChange}
+            >
+              Confirmar cambios
             </Button>
           </DialogFooter>
         </DialogContent>
