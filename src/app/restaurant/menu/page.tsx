@@ -148,34 +148,6 @@ export default function MenuPage() {
   const activeCount = menuItems.filter((item) => item.active).length;
   const inactiveCount = menuItems.length - activeCount;
 
-  React.useEffect(() => {
-    const nextUrl = form.imageUrlInput.trim();
-
-    if (!nextUrl || !isValidImageUrl(nextUrl) || nextUrl === form.imageUrl) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setForm((current) => {
-        const currentUrl = current.imageUrlInput.trim();
-
-        if (!isValidImageUrl(currentUrl) || currentUrl === current.imageUrl) {
-          return current;
-        }
-
-        return {
-          ...current,
-          imageUrl: currentUrl,
-          imageSource: "url",
-        };
-      });
-      setImageError(null);
-      setImagePreviewFailed(false);
-    }, 250);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [form.imageUrl, form.imageUrlInput]);
-
   function openCreateDialog() {
     setForm(emptyForm);
     setFormError(null);
