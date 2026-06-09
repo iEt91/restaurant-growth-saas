@@ -30,6 +30,8 @@ export type ReportProductRow = {
   productId: string;
   productName: string;
   category: MenuItem["category"];
+  imageUrl?: string;
+  imageSource?: MenuItem["imageSource"];
   quantity: number;
   revenue: number;
 };
@@ -251,12 +253,16 @@ function buildProductRows(
       const existing = rows.get(item.productId);
       const category = catalogItem?.category ?? item.category;
       const productName = catalogItem?.name ?? item.productName;
+      const imageUrl = catalogItem?.imageUrl;
+      const imageSource = catalogItem?.imageSource ?? null;
 
       if (!existing) {
         rows.set(item.productId, {
           productId: item.productId,
           productName,
           category,
+          imageUrl,
+          imageSource,
           quantity: item.quantity,
           revenue: item.lineTotal,
         });

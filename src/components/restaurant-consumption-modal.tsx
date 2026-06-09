@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
+import { ProductThumbnail } from "@/components/product-thumbnail";
 import type { RestaurantTable, TableConsumptionItem } from "@/types/domain";
 
 const categories = [
@@ -64,6 +65,10 @@ export function RestaurantConsumptionModal({
   const { menuItems } = useRestaurantFlow();
   const activeMenuItems = React.useMemo(
     () => menuItems.filter((item) => item.active),
+    [menuItems]
+  );
+  const menuItemById = React.useMemo(
+    () => new Map(menuItems.map((item) => [item.id, item] as const)),
     [menuItems]
   );
   const availableCategories = React.useMemo(
@@ -396,20 +401,27 @@ export function RestaurantConsumptionModal({
                           className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                         >
                           <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-slate-950">
-                                  {item.quantity}x {item.productName}
+                            <div className="flex min-w-0 items-start gap-3">
+                              <ProductThumbnail
+                                imageUrl={menuItemById.get(item.productId)?.imageUrl}
+                                alt={item.productName}
+                                className="h-12 w-12"
+                              />
+                              <div className="min-w-0 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-medium text-slate-950">
+                                    {item.quantity}x {item.productName}
+                                  </p>
+                                  <Badge variant="secondary" className="rounded-full">
+                                    {item.category}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-slate-500">
+                                  {item.unitPrice > 0
+                                    ? `${formatMoney(item.unitPrice)} c/u`
+                                    : "Precio unitario opcional"}
                                 </p>
-                                <Badge variant="secondary" className="rounded-full">
-                                  {item.category}
-                                </Badge>
                               </div>
-                              <p className="text-sm text-slate-500">
-                                {item.unitPrice > 0
-                                  ? `${formatMoney(item.unitPrice)} c/u`
-                                  : "Precio unitario opcional"}
-                              </p>
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-sm">

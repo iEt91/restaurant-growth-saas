@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRestaurantFlow } from "@/components/restaurant-flow-provider";
+import { ProductThumbnail } from "@/components/product-thumbnail";
 import { cn } from "@/lib/utils";
 import {
   calculateReports,
@@ -453,7 +454,15 @@ function BreakdownList({
 }: {
   title: string;
   description: string;
-  rows: Array<{ label: string; value: number; hint?: string }>;
+  rows: Array<{
+    label: string;
+    value: number;
+    hint?: string;
+    thumbnail?: {
+      imageUrl?: string;
+      alt: string;
+    };
+  }>;
   emptyMessage: string;
   tone?: "slate" | "violet" | "emerald" | "amber" | "rose";
 }) {
@@ -482,11 +491,20 @@ function BreakdownList({
             return (
               <div key={row.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-slate-950">
-                      {index + 1}. {row.label}
-                    </p>
-                    {row.hint ? <p className="mt-1 text-xs text-slate-500">{row.hint}</p> : null}
+                  <div className="flex min-w-0 items-start gap-3">
+                    {row.thumbnail ? (
+                      <ProductThumbnail
+                        imageUrl={row.thumbnail.imageUrl}
+                        alt={row.thumbnail.alt}
+                        className="h-10 w-10 rounded-xl"
+                      />
+                    ) : null}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-950">
+                        {index + 1}. {row.label}
+                      </p>
+                      {row.hint ? <p className="mt-1 text-xs text-slate-500">{row.hint}</p> : null}
+                    </div>
                   </div>
                   <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[11px]">
                     {row.value}
@@ -733,12 +751,20 @@ export default function ReportsPage() {
   const topProductRows = analytics.topProducts.slice(0, 5).map((product) => ({
     label: product.productName,
     value: product.quantity,
+    thumbnail: {
+      imageUrl: product.imageUrl,
+      alt: product.productName,
+    },
     hint: `${product.category} · ${formatMoney(product.revenue)}`,
   }));
 
   const beverageRows = analytics.beverageProducts.slice(0, 5).map((product) => ({
     label: product.productName,
     value: product.quantity,
+    thumbnail: {
+      imageUrl: product.imageUrl,
+      alt: product.productName,
+    },
     hint: `${product.category} · ${formatMoney(product.revenue)}`,
   }));
 
@@ -748,6 +774,10 @@ export default function ReportsPage() {
     .map((product) => ({
       label: product.productName,
       value: product.quantity,
+      thumbnail: {
+        imageUrl: product.imageUrl,
+        alt: product.productName,
+      },
       hint: `${product.category} · ${formatMoney(product.revenue)}`,
     }));
 
@@ -955,11 +985,18 @@ export default function ReportsPage() {
                       className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-slate-950">
-                            {index + 1}. {row.label}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">{row.hint}</p>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <ProductThumbnail
+                            imageUrl={row.thumbnail.imageUrl}
+                            alt={row.thumbnail.alt}
+                            className="h-11 w-11"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-950">
+                              {index + 1}. {row.label}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">{row.hint}</p>
+                          </div>
                         </div>
                         <Badge variant="outline" className="rounded-full px-3 py-1">
                           {row.value} vendidos

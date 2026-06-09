@@ -1,10 +1,11 @@
-export const APP_VERSION = "v 2.0.9";
+export const APP_VERSION = "v 2.0.10";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-09",
     notes: [
+      "Miniaturas de productos visibles en consumos de mesa y reportes",
       "Estabilizacion del flujo de imagenes del Menu sin auto-aplicar URLs al escribir",
       "Correccion de carga local y preview inmediato de imagenes en Menu",
       "Imagenes de productos agregadas al Menu con carga local o URL",
