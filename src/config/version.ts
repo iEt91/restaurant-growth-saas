@@ -1,10 +1,12 @@
-export const APP_VERSION = "v 2.0.5";
+export const APP_VERSION = "v 2.0.6";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-09",
     notes: [
+      "Auditoria de Plano de Mesas con flujo pendiente y modal de consumo estabilizados",
+      "Acciones del detalle de mesa usan la reserva del modal seleccionado",
       "Auditoria de Reservas con correccion de disponibilidad manual y lista de espera",
       "Correccion administrativa de estado desde editar reserva preservada",
       "Limpieza de tabs internas duplicadas en Configuracion",

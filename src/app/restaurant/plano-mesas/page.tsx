@@ -54,6 +54,7 @@ function formatMoney(value: number) {
 export default function FloorPlanPage() {
   const router = useRouter();
   const {
+    reservations,
     tables,
     getActiveReservationForTable,
     getConsumptionItemsForReservation,
@@ -69,9 +70,22 @@ export default function FloorPlanPage() {
   const [isConsumptionOpen, setIsConsumptionOpen] = React.useState(false);
   const [actionNotice, setActionNotice] = React.useState<string | null>(null);
 
+  const getOperationalReservationForTable = React.useCallback(
+    (tableName: string) =>
+      getActiveReservationForTable(tableName) ??
+      reservations.find(
+        (reservation) =>
+          reservation.tableName === tableName &&
+          reservation.status === "Pendiente" &&
+          isToday(reservation.date)
+      ) ??
+      null,
+    [getActiveReservationForTable, reservations]
+  );
+
   const selectedTable = tables.find((table) => table.id === selectedTableId) ?? null;
   const selectedTableReservation = selectedTable
-    ? getActiveReservationForTable(selectedTable.name)
+    ? getOperationalReservationForTable(selectedTable.name)
     : null;
   const selectedTableReservationId = selectedTableReservation?.id ?? null;
   const selectedTableReservationStatus = selectedTableReservation?.status ?? null;
@@ -108,7 +122,7 @@ export default function FloorPlanPage() {
 
   const detailTable = tables.find((table) => table.id === detailTableId) ?? null;
   const detailReservation = detailTable
-    ? getActiveReservationForTable(detailTable.name)
+    ? getOperationalReservationForTable(detailTable.name)
     : null;
   const detailReservationId = detailReservation?.id ?? null;
   const detailConsumptionItems = React.useMemo(
@@ -126,6 +140,10 @@ export default function FloorPlanPage() {
 
     return getOccupiedMinutesRemaining(detailReservation);
   }, [detailReservation, detailTable?.status, getOccupiedMinutesRemaining]);
+  const detailCanAddConsumption =
+    detailTable?.status === "Ocupada" &&
+    detailReservation?.status === "Ocupada" &&
+    isToday(detailReservation.date);
 
   function handleOpenReservation() {
     if (!selectedTableReservation) {
@@ -133,6 +151,15 @@ export default function FloorPlanPage() {
     }
 
     openReservationDetail(selectedTableReservation.id);
+    router.push("/restaurant/reservas");
+  }
+
+  function handleOpenDetailReservation() {
+    if (!detailReservation) {
+      return;
+    }
+
+    openReservationDetail(detailReservation.id);
     router.push("/restaurant/reservas");
   }
 
@@ -145,6 +172,17 @@ export default function FloorPlanPage() {
       return;
     }
 
+    setActionNotice(null);
+    setIsConsumptionOpen(true);
+  }
+
+  function handleOpenDetailConsumption() {
+    if (!detailTable || !detailCanAddConsumption) {
+      setActionNotice(consumptionDisabledMessage);
+      return;
+    }
+
+    setSelectedTableId(detailTable.id);
     setActionNotice(null);
     setIsConsumptionOpen(true);
   }
@@ -705,7 +743,7 @@ export default function FloorPlanPage() {
                 <Button
                   variant="outline"
                   className="rounded-2xl"
-                  onClick={handleOpenReservation}
+                  onClick={handleOpenDetailReservation}
                   disabled={!detailReservation}
                 >
                   Ver reserva
@@ -713,10 +751,10 @@ export default function FloorPlanPage() {
                 <Button
                   variant="outline"
                   className="rounded-2xl"
-                  onClick={handleOpenConsumption}
-                  disabled={!canAddConsumption}
+                  onClick={handleOpenDetailConsumption}
+                  disabled={!detailCanAddConsumption}
                   title={
-                    !canAddConsumption
+                    !detailCanAddConsumption
                       ? consumptionDisabledMessage
                       : undefined
                   }

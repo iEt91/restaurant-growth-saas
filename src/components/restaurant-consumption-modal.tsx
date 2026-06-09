@@ -91,6 +91,32 @@ export function RestaurantConsumptionModal({
   const [draftUnitPrice, setDraftUnitPrice] = React.useState(
     () => (initialProduct?.price ? String(initialProduct.price) : "")
   );
+  const initializedReservationRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) {
+      initializedReservationRef.current = null;
+      return;
+    }
+
+    if (initializedReservationRef.current === reservationId) {
+      return;
+    }
+
+    initializedReservationRef.current = reservationId;
+    setDraftItems(existingItems);
+    setDraftCategory(initialCategory);
+    setDraftProductId(initialProduct?.id ?? "");
+    setDraftQuantity("1");
+    setDraftUnitPrice(initialProduct?.price ? String(initialProduct.price) : "");
+  }, [
+    existingItems,
+    initialCategory,
+    initialProduct?.id,
+    initialProduct?.price,
+    open,
+    reservationId,
+  ]);
 
   const productsInCategory = React.useMemo(
     () => activeMenuItems.filter((item) => item.category === draftCategory),
