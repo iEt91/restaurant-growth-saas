@@ -1,10 +1,12 @@
-export const APP_VERSION = "v 2.0.2";
+export const APP_VERSION = "v 2.0.3";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-09",
     notes: [
+      "Reportes alineados al periodo activo sin mezclar Hoy, Semana y Mes",
+      "Cards principales de reportes calculadas sobre el rango seleccionado",
       "Cierre de estabilidad de flujos operativos del sprint",
       "Sincronizacion del CRM al completar reservas desde el plano",
       "Validacion de configuracion, reservas, plano, reportes, clientes y menu",

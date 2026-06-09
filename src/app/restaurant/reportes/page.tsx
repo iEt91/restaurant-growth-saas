@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  BarChart3,
   Download,
   FileDown,
   PieChart,
@@ -121,11 +120,7 @@ function buildCsvPayload(analytics: ReportAnalytics) {
   const rows: string[][] = [
     ["Seccion", "Campo", "Valor"],
     ["Resumen", "Periodo", analytics.selectedLabel],
-    ["Resumen", "Fecha de ventas hoy", analytics.todayLabel ?? "Pendiente"],
-    ["Ventas", "Ventas totales", String(analytics.salesTotal)],
-    ["Ventas", "Ventas hoy", String(analytics.comparisonSales.today)],
-    ["Ventas", "Ventas semana", String(analytics.comparisonSales.week)],
-    ["Ventas", "Ventas mes", String(analytics.comparisonSales.month)],
+    ["Ventas", "Ventas del periodo", String(analytics.salesTotal)],
     ["Reservas", "Total", String(analytics.reservationCounts.total)],
     ["Reservas", "Completadas", String(analytics.reservationCounts.completed)],
     ["Reservas", "Canceladas", String(analytics.reservationCounts.cancelled)],
@@ -270,7 +265,7 @@ function buildPrintHtml(analytics: ReportAnalytics) {
             <p>${analytics.selectedLabel}</p>
           </div>
           <div>
-            <h3>Ventas totales</h3>
+            <h3>Ventas del periodo</h3>
             <div class="metric">${formatMoney(analytics.salesTotal)}</div>
           </div>
         </div>
@@ -289,12 +284,6 @@ function buildPrintHtml(analytics: ReportAnalytics) {
             <p>Libres: ${analytics.occupancy.free}</p>
             <p>Porcentaje: ${analytics.occupancy.percentage}%</p>
           </div>
-        </div>
-
-        <div class="card" style="margin-bottom: 16px;">
-          <h3>Ventas hoy</h3>
-          <p>Fecha: ${analytics.todayLabel ?? "Pendiente"}</p>
-          <p class="metric" style="font-size: 24px;">${formatMoney(analytics.comparisonSales.today)}</p>
         </div>
 
         <div class="card">
@@ -624,62 +613,59 @@ export default function ReportsPage() {
   const summaryCards = [
     {
       icon: Wallet,
-      label: "Ventas totales",
+      label: "Ventas del periodo",
       value: formatMoney(analytics.salesTotal),
-      hint: `Periodo ${analytics.selectedLabel}`,
+      hint: analytics.selectedLabel,
       variant: "success" as const,
     },
     {
-      icon: TrendingUp,
-      label: "Ventas hoy",
-      value: formatMoney(analytics.comparisonSales.today),
-      hint: analytics.todayLabel ?? "Calculando fecha...",
-      variant: "info" as const,
-    },
-    {
-      icon: BarChart3,
-      label: "Ventas semana",
-      value: formatMoney(analytics.comparisonSales.week),
-      hint: "Ultimos 7 dias",
-      variant: "secondary" as const,
-    },
-    {
-      icon: FileDown,
-      label: "Ventas mes",
-      value: formatMoney(analytics.comparisonSales.month),
-      hint: "Mes actual",
-      variant: "outline" as const,
-    },
-  ];
-
-  const reservationCards = [
-    {
       icon: PieChart,
-      label: "Reservas totales",
+      label: "Reservas del periodo",
       value: String(analytics.reservationCounts.total),
-      hint: "En el periodo",
+      hint: analytics.selectedLabel,
       variant: "secondary" as const,
     },
     {
       icon: Users2,
       label: "Completadas",
       value: String(analytics.reservationCounts.completed),
-      hint: "Cerradas con exito",
+      hint: "Del periodo",
       variant: "success" as const,
     },
     {
       icon: Users2,
       label: "Canceladas",
       value: String(analytics.reservationCounts.cancelled),
-      hint: "Operacion local",
+      hint: "Del periodo",
       variant: "warning" as const,
     },
     {
       icon: Users2,
       label: "No-show",
       value: String(analytics.reservationCounts.noShow),
-      hint: "Ausencias registradas",
+      hint: "Del periodo",
       variant: "danger" as const,
+    },
+    {
+      icon: Wallet,
+      label: "Ticket promedio",
+      value: formatMoney(analytics.customers.averageTicket),
+      hint: "Completadas",
+      variant: "outline" as const,
+    },
+    {
+      icon: PieChart,
+      label: "Ocupacion actual",
+      value: formatPercent(analytics.occupancy.percentage),
+      hint: `${analytics.occupancy.occupied} ocupadas`,
+      variant: "info" as const,
+    },
+    {
+      icon: Users2,
+      label: "Primeras visitas",
+      value: String(analytics.customers.newCustomers),
+      hint: `${analytics.customers.total} clientes`,
+      variant: "secondary" as const,
     },
   ];
 
@@ -856,11 +842,6 @@ export default function ReportsPage() {
             />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {summaryCards.map((card) => (
-                <MetricCard key={card.label} {...card} />
-              ))}
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {reservationCards.map((card) => (
                 <MetricCard key={card.label} {...card} />
               ))}
             </div>
@@ -1093,21 +1074,21 @@ export default function ReportsPage() {
             <Card className="rounded-[28px]">
               <CardHeader className="border-b border-slate-100 pb-4">
                 <SectionHeader
-                  title="Comparativo"
-                  description="Ventas comparadas contra hoy, semana y mes."
+                  title="Detalle del periodo"
+                  description="Indicadores calculados solo sobre el rango activo."
                 />
               </CardHeader>
               <CardContent className="space-y-3 pt-5">
                 {[
-                  { label: "Ventas hoy", value: analytics.comparisonSales.today },
-                  { label: "Ventas semana", value: analytics.comparisonSales.week },
-                  { label: "Ventas mes", value: analytics.comparisonSales.month },
-                  { label: "Ventas periodo", value: analytics.salesTotal },
+                  { label: "Ventas del periodo", value: formatMoney(analytics.salesTotal) },
+                  { label: "Ticket promedio", value: formatMoney(analytics.customers.averageTicket) },
+                  { label: "Reservas completadas", value: String(analytics.reservationCounts.completed) },
+                  { label: "Ocupacion actual", value: formatPercent(analytics.occupancy.percentage) },
                 ].map((item) => (
                   <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-medium text-slate-950">{item.label}</p>
-                      <p className="text-sm font-semibold text-slate-950">{formatMoney(item.value)}</p>
+                      <p className="text-sm font-semibold text-slate-950">{item.value}</p>
                     </div>
                   </div>
                 ))}
