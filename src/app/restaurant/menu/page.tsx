@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { ImageIcon, Link2, Plus, Search, Pencil, Trash2, Upload, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +31,9 @@ type MenuFormState = {
   category: MenuCategory;
   price: string;
   image: string;
+  imageUrl: string;
+  imageSource: MenuItem["imageSource"];
+  imageUrlInput: string;
   active: boolean;
 };
 
@@ -41,8 +44,14 @@ const emptyForm: MenuFormState = {
   category: "Entradas",
   price: "",
   image: "",
+  imageUrl: "",
+  imageSource: null,
+  imageUrlInput: "",
   active: true,
 };
+
+const allowedImageTypes = ["image/jpeg", "image/png", "image/webp"] as const;
+const maxImageSizeBytes = 3 * 1024 * 1024;
 
 const moneyFormatter = new Intl.NumberFormat("es-AR", {
   currency: "ARS",
@@ -58,6 +67,21 @@ function normalizePriceInput(value: string) {
   return value.replace(/[^\d]/g, "");
 }
 
+function isValidImageUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getImageSourceLabel(source: MenuItem["imageSource"]) {
+  if (source === "upload") return "Subida desde computadora";
+  if (source === "url") return "Imagen web";
+  return "Sin imagen";
+}
+
 function getFormFromItem(item: MenuItem): MenuFormState {
   return {
     id: item.id,
@@ -66,6 +90,9 @@ function getFormFromItem(item: MenuItem): MenuFormState {
     category: item.category,
     price: item.price ? String(item.price) : "",
     image: item.image,
+    imageUrl: item.imageUrl ?? "",
+    imageSource: item.imageSource ?? null,
+    imageUrlInput: item.imageSource === "url" ? item.imageUrl ?? "" : "",
     active: item.active,
   };
 }
@@ -76,6 +103,10 @@ export default function MenuPage() {
   const [search, setSearch] = React.useState("");
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [form, setForm] = React.useState<MenuFormState>(emptyForm);
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const [imageError, setImageError] = React.useState<string | null>(null);
+  const [imagePreviewFailed, setImagePreviewFailed] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const filteredItems = React.useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -119,11 +150,17 @@ export default function MenuPage() {
 
   function openCreateDialog() {
     setForm(emptyForm);
+    setFormError(null);
+    setImageError(null);
+    setImagePreviewFailed(false);
     setDialogOpen(true);
   }
 
   function openEditDialog(item: MenuItem) {
     setForm(getFormFromItem(item));
+    setFormError(null);
+    setImageError(null);
+    setImagePreviewFailed(false);
     setDialogOpen(true);
   }
 
@@ -141,6 +178,9 @@ export default function MenuPage() {
 
   function closeDialog() {
     setDialogOpen(false);
+    setFormError(null);
+    setImageError(null);
+    setImagePreviewFailed(false);
   }
 
   function updateField<K extends keyof MenuFormState>(field: K, value: MenuFormState[K]) {
@@ -148,11 +188,99 @@ export default function MenuPage() {
       ...current,
       [field]: value,
     }));
+    setFormError(null);
+  }
+
+  function handleUploadClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!allowedImageTypes.includes(file.type as (typeof allowedImageTypes)[number])) {
+      setImageError("Usá una imagen JPG, PNG o WebP.");
+      return;
+    }
+
+    if (file.size > maxImageSizeBytes) {
+      setImageError("La imagen no puede superar los 3 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        setImageError("No pudimos leer la imagen. Probá con otro archivo.");
+        return;
+      }
+
+      setForm((current) => ({
+        ...current,
+        imageUrl: reader.result as string,
+        imageSource: "upload",
+        imageUrlInput: "",
+      }));
+      setImageError(null);
+      setImagePreviewFailed(false);
+    };
+    reader.onerror = () => {
+      setImageError("No pudimos leer la imagen. Probá con otro archivo.");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleUseImageUrl() {
+    const nextUrl = form.imageUrlInput.trim();
+
+    if (!nextUrl) {
+      setImageError("Pegá una URL de imagen para usarla.");
+      return;
+    }
+
+    if (!isValidImageUrl(nextUrl)) {
+      setImageError("La URL debe empezar con http:// o https://.");
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      imageUrl: nextUrl,
+      imageSource: "url",
+    }));
+    setImageError(null);
+    setImagePreviewFailed(false);
+  }
+
+  function handleRemoveImage() {
+    setForm((current) => ({
+      ...current,
+      imageUrl: "",
+      imageSource: null,
+      imageUrlInput: "",
+    }));
+    setImageError(null);
+    setImagePreviewFailed(false);
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedPrice = normalizePriceInput(form.price);
+
+    if (!form.name.trim()) {
+      setFormError("El nombre del producto es obligatorio.");
+      return;
+    }
+
+    if (form.price.trim() && (!normalizedPrice || Number(normalizedPrice) <= 0)) {
+      setFormError("El precio debe ser un número entero mayor a cero o quedar vacío.");
+      return;
+    }
 
     const nextItem: MenuItem = {
       id: form.id ?? crypto.randomUUID(),
@@ -161,6 +289,8 @@ export default function MenuPage() {
       category: form.category,
       price: normalizedPrice ? Number(normalizedPrice) : undefined,
       image: form.image.trim(),
+      imageUrl: form.imageUrl.trim() || undefined,
+      imageSource: form.imageUrl.trim() ? form.imageSource : null,
       active: form.active,
     };
 
@@ -251,8 +381,19 @@ export default function MenuPage() {
                   <tr key={item.id} className="align-top text-sm">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#e2e8f0,#f8fafc)] text-xs font-medium text-slate-500">
-                          {item.image?.trim() ? "IMG" : "IMG"}
+                        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#e2e8f0,#f8fafc)] text-xs font-medium text-slate-500">
+                          <ImageIcon className="h-4 w-4 text-slate-400" />
+                          {item.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : null}
                         </div>
                         <div>
                           <p className="font-medium text-slate-950">{item.name}</p>
@@ -327,6 +468,12 @@ export default function MenuPage() {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+              {formError ? (
+                <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {formError}
+                </div>
+              ) : null}
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Nombre</Label>
@@ -371,13 +518,106 @@ export default function MenuPage() {
                     placeholder="Opcional"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Imagen placeholder o URL</Label>
-                  <Input
-                    value={form.image}
-                    onChange={(event) => updateField("image", event.target.value)}
-                    placeholder="Opcional"
-                  />
+                <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium text-slate-950">Imagen del producto</p>
+                      <p className="text-sm text-slate-500">
+                        Subí una imagen o usá una URL web. Es opcional.
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="w-fit rounded-full">
+                      {getImageSourceLabel(form.imageSource)}
+                    </Badge>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
+                    <div className="relative flex aspect-square min-h-40 items-center justify-center overflow-hidden rounded-3xl border border-dashed border-slate-300 bg-white">
+                      {form.imageUrl && !imagePreviewFailed ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={form.imageUrl}
+                          alt={form.name || "Imagen del producto"}
+                          className="h-full w-full object-cover"
+                          onError={() => {
+                            setImagePreviewFailed(true);
+                            setImageError("No pudimos cargar la imagen. Podés reemplazarla o quitarla.");
+                          }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 px-4 text-center text-sm text-slate-500">
+                          <ImageIcon className="h-8 w-8 text-slate-300" />
+                          <span>{form.imageUrl ? "Imagen no disponible" : "Sin imagen"}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Subir desde computadora</Label>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleFileChange}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-start rounded-2xl"
+                          onClick={handleUploadClick}
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Subir imagen
+                        </Button>
+                        <p className="text-xs text-slate-500">
+                          JPG, PNG o WebP. Máximo 3 MB.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>URL de imagen</Label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Input
+                            value={form.imageUrlInput}
+                            onChange={(event) => {
+                              updateField("imageUrlInput", event.target.value);
+                              setImageError(null);
+                            }}
+                            placeholder="https://..."
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-2xl"
+                            onClick={handleUseImageUrl}
+                          >
+                            <Link2 className="mr-2 h-4 w-4" />
+                            Usar URL
+                          </Button>
+                        </div>
+                      </div>
+
+                      {imageError ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          {imageError}
+                        </div>
+                      ) : null}
+
+                      {form.imageUrl ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-2xl text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                          onClick={handleRemoveImage}
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Quitar imagen
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
                   <div>

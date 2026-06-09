@@ -156,6 +156,8 @@ export interface MenuItem {
   name: string;
   description: string;
   image: string;
+  imageUrl?: string;
+  imageSource?: "upload" | "url" | null;
   price?: number;
   active: boolean;
 }
