@@ -10,7 +10,6 @@ import {
   Search,
   Sparkles,
   Star,
-  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -633,22 +632,6 @@ export function CustomersPanel() {
         </CardHeader>
 
         <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-slate-950">
-                  {filteredCustomers.length} clientes
-                </p>
-                <p className="text-sm text-slate-500">
-                  Unificados por email o teléfono.
-                </p>
-              </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
-                <Users className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {crmCustomers.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-500">
