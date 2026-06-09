@@ -1,10 +1,13 @@
-export const APP_VERSION = "v 1.8.2";
+export const APP_VERSION = "v 1.9.0";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-09",
     notes: [
+      "Dashboard operativo conectado al estado local de reservas y mesas",
+      "Metricas del dia actual calculadas con reservas, consumos y clientes reales",
+      "Alertas, cumpleanos y ultimas reservas derivadas del flujo operativo",
       "Card de resumen de cantidad de clientes removida del panel izquierdo",
       "Listado de clientes aprovecha el espacio liberado",
       "Scroll independiente en listado izquierdo de Clientes",
