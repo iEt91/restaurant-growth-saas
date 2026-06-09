@@ -1,10 +1,14 @@
-export const APP_VERSION = "v 1.7.6";
+export const APP_VERSION = "v 1.8.0";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "CRM funcional construido desde reservas y consumos locales",
+      "Clientes unificados por email o telefono desde reservas",
+      "Ficha de cliente con metricas, historial y consumos agrupados",
+      "Alertas de cumpleanos, alergias, preferencias y notas internas",
       "Header de Reservas estabilizado entre Hoy, Semana y Mes",
       "Boton Filtros removido del selector superior de Reservas",
       "Filtros rapidos Hoy, Semana, Mes y Personalizado en Reservas",
