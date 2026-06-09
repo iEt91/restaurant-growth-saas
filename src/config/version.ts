@@ -1,10 +1,12 @@
-export const APP_VERSION = "v 1.8.0";
+export const APP_VERSION = "v 1.8.1";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-08",
     notes: [
+      "Scroll independiente en listado izquierdo de Clientes",
+      "Resumen y buscador del CRM permanecen visibles",
       "CRM funcional construido desde reservas y consumos locales",
       "Clientes unificados por email o telefono desde reservas",
       "Ficha de cliente con metricas, historial y consumos agrupados",

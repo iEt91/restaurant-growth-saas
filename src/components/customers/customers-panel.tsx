@@ -611,7 +611,7 @@ export function CustomersPanel() {
 
   return (
     <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-      <Card className="h-fit xl:sticky xl:top-6">
+      <Card className="flex min-h-0 flex-col xl:sticky xl:top-6 xl:max-h-[calc(100vh-7rem)]">
         <CardHeader className="border-b border-slate-100 pb-4">
           <div className="space-y-3">
             <div>
@@ -632,7 +632,7 @@ export function CustomersPanel() {
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-3">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -649,56 +649,58 @@ export function CustomersPanel() {
             </div>
           </div>
 
-          {crmCustomers.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-500">
-              Todavía no hay clientes registrados. Los clientes aparecerán automáticamente
-              cuando crees reservas.
-            </div>
-          ) : filteredCustomers.length > 0 ? (
-            filteredCustomers.map((customer) => {
-              const active = selectedCustomer?.id === customer.id;
-              const visitLabel = customer.latestVisit
-                ? `Última visita ${formatDisplayDate(customer.latestVisit.date)}`
-                : customer.upcomingReservation
-                  ? `Próxima reserva ${formatDisplayDate(customer.upcomingReservation.date)}`
-                  : "Sin visitas completadas";
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            {crmCustomers.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-500">
+                Todavía no hay clientes registrados. Los clientes aparecerán automáticamente
+                cuando crees reservas.
+              </div>
+            ) : filteredCustomers.length > 0 ? (
+              filteredCustomers.map((customer) => {
+                const active = selectedCustomer?.id === customer.id;
+                const visitLabel = customer.latestVisit
+                  ? `Última visita ${formatDisplayDate(customer.latestVisit.date)}`
+                  : customer.upcomingReservation
+                    ? `Próxima reserva ${formatDisplayDate(customer.upcomingReservation.date)}`
+                    : "Sin visitas completadas";
 
-              return (
-                <button
-                  key={customer.id}
-                  type="button"
-                  onClick={() => setSelectedCustomerId(customer.id)}
-                  className={cn(
-                    "w-full rounded-3xl border px-4 py-4 text-left transition",
-                    active
-                      ? "border-slate-950 bg-slate-950 text-white shadow-[0_16px_28px_rgba(15,23,42,0.18)]"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{customer.fullName}</p>
-                      <p className={cn("mt-1 text-xs", active ? "text-slate-300" : "text-slate-500")}>
-                        {customer.phone}
-                      </p>
-                      <p className={cn("mt-1 text-xs", active ? "text-slate-400" : "text-slate-400")}>
-                        {visitLabel}
-                      </p>
-                    </div>
+                return (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    onClick={() => setSelectedCustomerId(customer.id)}
+                    className={cn(
+                      "w-full rounded-3xl border px-4 py-4 text-left transition",
+                      active
+                        ? "border-slate-950 bg-slate-950 text-white shadow-[0_16px_28px_rgba(15,23,42,0.18)]"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{customer.fullName}</p>
+                        <p className={cn("mt-1 text-xs", active ? "text-slate-300" : "text-slate-500")}>
+                          {customer.phone}
+                        </p>
+                        <p className={cn("mt-1 text-xs", active ? "text-slate-400" : "text-slate-400")}>
+                          {visitLabel}
+                        </p>
+                      </div>
 
-                    <div className="flex flex-col items-end gap-2">
-                      {customer.vip ? <Badge variant="warning">VIP</Badge> : null}
-                      {customer.recurrent ? <Badge variant="success">Recurrente</Badge> : null}
+                      <div className="flex flex-col items-end gap-2">
+                        {customer.vip ? <Badge variant="warning">VIP</Badge> : null}
+                        {customer.recurrent ? <Badge variant="success">Recurrente</Badge> : null}
+                      </div>
                     </div>
-                  </div>
-                </button>
-              );
-            })
-          ) : (
-            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-500">
-              No encontramos clientes con ese criterio.
-            </div>
-          )}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-500">
+                No encontramos clientes con ese criterio.
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
