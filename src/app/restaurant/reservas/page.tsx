@@ -560,6 +560,11 @@ export default function ReservationsPage() {
     }
 
     const currentReservation = getReservationById(dialog.reservationId);
+    const requestedTableName = normalizeTableInputValue(dialog.form.tableName);
+    const statusChangedByAdmin =
+      dialog.mode === "edit" &&
+      Boolean(currentReservation) &&
+      currentReservation?.status !== dialog.form.status;
     const nextReservation: ReservationRow = {
       id:
         dialog.mode === "edit" && dialog.reservationId
@@ -580,16 +585,19 @@ export default function ReservationsPage() {
       partySize: Number(dialog.form.partySize),
       channel: dialog.form.channel,
       status: dialog.form.status,
-      tableName: normalizeTableInputValue(dialog.form.tableName),
+      tableName: requestedTableName,
     };
 
-    let result = saveReservation(nextReservation);
+    let result = saveReservation(nextReservation, {
+      allowAdministrativeStatusCorrection: statusChangedByAdmin,
+    });
 
     if (
       result.error &&
       dialog.mode === "create" &&
       autoConfirmReservations &&
-      allowWaitlist
+      allowWaitlist &&
+      !requestedTableName
     ) {
       result = saveReservation({
         ...nextReservation,

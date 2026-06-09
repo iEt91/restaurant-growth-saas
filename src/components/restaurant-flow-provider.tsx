@@ -63,6 +63,10 @@ type ReservationMutationResult = {
   error: string | null;
 };
 
+type ReservationSaveOptions = {
+  allowAdministrativeStatusCorrection?: boolean;
+};
+
 type ReservationDraft = Pick<
   RestaurantReservation,
   "id" | "date" | "time" | "partySize" | "tableName"
@@ -96,7 +100,10 @@ type RestaurantFlowContextValue = {
   ) => void;
   deleteBusinessHourBlock: (day: BusinessDayName, blockId: string) => void;
   saveCustomer: (customer: Customer) => void;
-  saveReservation: (reservation: RestaurantReservation) => ReservationMutationResult;
+  saveReservation: (
+    reservation: RestaurantReservation,
+    options?: ReservationSaveOptions
+  ) => ReservationMutationResult;
   saveMenuItem: (menuItem: MenuItem) => void;
   deleteMenuItem: (menuItemId: string) => void;
   updateReservationStatus: (
@@ -876,13 +883,18 @@ export function RestaurantFlowProvider({
   }, [getActiveReservationForTable, normalizedTableOverrides]);
 
   const saveReservation = React.useCallback(
-    (reservation: RestaurantReservation): ReservationMutationResult => {
+    (
+      reservation: RestaurantReservation,
+      options: ReservationSaveOptions = {}
+    ): ReservationMutationResult => {
       const currentReservation = reservations.find((item) => item.id === reservation.id);
-      const policyError = getReservationStatusTransitionError(
-        reservation,
-        reservation.status,
-        todayDateKey
-      );
+      const policyError = options.allowAdministrativeStatusCorrection
+        ? null
+        : getReservationStatusTransitionError(
+            reservation,
+            reservation.status,
+            todayDateKey
+          );
 
       if (policyError) {
         return {
