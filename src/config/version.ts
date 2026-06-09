@@ -1,10 +1,13 @@
-export const APP_VERSION = "v 2.0.1";
+export const APP_VERSION = "v 2.0.2";
 
 export const VERSION_HISTORY = [
   {
     version: APP_VERSION,
     date: "2026-06-09",
     notes: [
+      "Cierre de estabilidad de flujos operativos del sprint",
+      "Sincronizacion del CRM al completar reservas desde el plano",
+      "Validacion de configuracion, reservas, plano, reportes, clientes y menu",
       "Confirmacion obligatoria para cambios de duracion e intervalo operativo",
       "Duracion e intervalo normalizados con limites seguros y pasos de 5 minutos",
       "Configuracion operativa conectada al estado local del restaurante",

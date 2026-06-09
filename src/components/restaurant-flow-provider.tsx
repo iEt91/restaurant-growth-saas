@@ -1102,6 +1102,8 @@ export function RestaurantFlowProvider({
         warning = decision.warning;
       }
 
+      syncCustomerProfileForReservation(nextReservation);
+
       setReservations((current) =>
         current.map((reservation) =>
           reservation.id === reservationId ? nextReservation : reservation
@@ -1118,6 +1120,7 @@ export function RestaurantFlowProvider({
       intervalBetweenReservationsMinutes,
       reservations,
       standardReservationDurationMinutes,
+      syncCustomerProfileForReservation,
       tables,
       todayDateKey,
     ]
